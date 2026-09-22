@@ -38,7 +38,7 @@ import {
   UpdateCheckError,
   type UpdateCheckErrorCode,
 } from './api'
-import { compareSystemVersions } from './releases'
+import { compareSystemVersions, splitCustomVersion } from './releases'
 import {
   subscribeSystemUpdatePreferences,
   useSystemUpdatePreferencesStore,
@@ -149,10 +149,15 @@ export function useSystemUpdate() {
   }, [isAdmin, queryClient])
 
   const version = status?.version?.trim()
+  // Custom builds ("<upstream>-custom.<n>") compare against upstream
+  // releases through their base version so the update check keeps working.
+  const custom = version ? splitCustomVersion(version) : null
+  const isCustomBuild = custom !== null
+  const customBaseVersion = custom?.baseVersion
   const currentVersion =
     version === 'v0.0.0' || version === '0.0.0'
       ? undefined
-      : version || undefined
+      : (custom?.baseVersion ?? version) || undefined
   const release = query.data?.release ?? null
   const comparison = compareSystemVersions(currentVersion, release?.tag_name)
   const hasUpdate = comparison === -1
@@ -183,6 +188,8 @@ export function useSystemUpdate() {
 
   return {
     currentVersion,
+    isCustomBuild,
+    customBaseVersion,
     release,
     comparison,
     hasUpdate,

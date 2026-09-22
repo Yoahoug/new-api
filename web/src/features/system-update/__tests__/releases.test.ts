@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { describe, expect, test } from 'vitest'
 
-import { compareSystemVersions, selectLatestRelease } from '../releases'
+import { compareSystemVersions, selectLatestRelease, splitCustomVersion } from '../releases'
 
 describe('system release ordering', () => {
   test.each([
@@ -44,6 +44,21 @@ describe('system release ordering', () => {
     ['v1.0.0-rc.36-2-gabcdef', 'v1.0.0', null],
   ])('compares %s against %s as %s', (current, latest, expected) => {
     expect(compareSystemVersions(current, latest)).toBe(expected)
+  })
+
+  test('splits custom build versions into upstream base and build number', () => {
+    expect(splitCustomVersion('v1.0.0-rc.40-custom.1')).toEqual({
+      baseVersion: 'v1.0.0-rc.40',
+      buildNumber: 1,
+    })
+    expect(splitCustomVersion('v1.0.0-custom.12')).toEqual({
+      baseVersion: 'v1.0.0',
+      buildNumber: 12,
+    })
+    expect(splitCustomVersion('v1.0.0-rc.40')).toBeNull()
+    expect(splitCustomVersion('v1.0.0-custom.0')).toBeNull()
+    expect(splitCustomVersion('v1.0.0-rc.40-custom.abc')).toBeNull()
+    expect(splitCustomVersion('dev')).toBeNull()
   })
 
   test('selects the highest published version including pre-releases, regardless of order', () => {

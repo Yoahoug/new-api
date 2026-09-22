@@ -6790,6 +6790,10 @@
     "Average RPM (today)": "RPM moyen (jour)",
     "Today used": "Consommé aujourd'hui",
     "Usage today": "Utilisation du jour",
-    "Site-wide": "Tout le site"
+    "Site-wide": "Tout le site",
+    "Custom build": "Build personnalisé",
+    "Upstream base: {{version}}": "Base amont : {{version}}",
+    "Upstream base": "Base amont",
+    "Custom build number": "Numéro de build"
   }
 }

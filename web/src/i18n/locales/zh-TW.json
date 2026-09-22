@@ -6790,6 +6790,10 @@
     "Average RPM (today)": "今日平均 RPM",
     "Today used": "今日消耗",
     "Usage today": "今日用量",
-    "Site-wide": "全站"
+    "Site-wide": "全站",
+    "Custom build": "二改版",
+    "Upstream base: {{version}}": "上游基準: {{version}}",
+    "Upstream base": "上游基準",
+    "Custom build number": "二改序號"
   }
 }

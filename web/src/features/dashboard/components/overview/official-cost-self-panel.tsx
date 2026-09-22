@@ -54,24 +54,24 @@ export function OfficialCostSelfPanel() {
   )
 
   return (
-    <div className='flex items-center justify-between gap-2'>
+    <div className='bg-background/60 rounded-lg px-2.5 py-2'>
       <div className='flex items-center gap-1.5'>
         <IconBadge tone='warning' size='xs'>
           <Wallet />
         </IconBadge>
-        <span className='text-muted-foreground text-[11px] font-medium'>
+        <span className='text-muted-foreground truncate text-[11px] leading-none font-medium'>
           {t('Official API cost estimate')}
         </span>
       </div>
       {query.isLoading ? (
-        <Skeleton className='h-4 w-16' />
+        <Skeleton className='mt-1.5 h-4 w-16' />
       ) : (
-        <span
-          className='font-mono text-xs font-bold tabular-nums'
+        <div
+          className='text-foreground mt-1.5 truncate font-mono text-sm font-bold tabular-nums sm:text-base'
           title={`${totalCNY.toFixed(6)} CNY`}
         >
           {hasData ? formatOfficialCNY(totalCNY) : '--'}
-        </span>
+        </div>
       )}
     </div>
   )

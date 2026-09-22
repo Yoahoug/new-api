@@ -6790,6 +6790,10 @@
     "Average RPM (today)": "Average RPM (today)",
     "Today used": "Today used",
     "Usage today": "Usage today",
-    "Site-wide": "Site-wide"
+    "Site-wide": "Site-wide",
+    "Custom build": "Custom build",
+    "Upstream base: {{version}}": "Upstream base: {{version}}",
+    "Upstream base": "Upstream base",
+    "Custom build number": "Custom build number"
   }
 }

@@ -84,6 +84,25 @@ export function compareSystemVersions(
   return 0
 }
 
+/**
+ * Custom deployment builds tag themselves `<upstream-tag>-custom.<n>`.
+ * Splitting them keeps upstream release comparison meaningful: the base
+ * version is compared against upstream releases, while the suffix only
+ * numbers successive local rebuilds.
+ */
+export function splitCustomVersion(value: string): {
+  baseVersion: string
+  buildNumber: number
+} | null {
+  const match = value
+    .trim()
+    .match(/^(v?\d+(?:\.\d+){2,}(?:-(?:alpha|beta|rc|patch)(?:\.\d+)?)?)-custom\.(\d+)$/)
+  if (!match) return null
+  const buildNumber = Number(match[2])
+  if (!Number.isInteger(buildNumber) || buildNumber <= 0) return null
+  return { baseVersion: match[1], buildNumber }
+}
+
 const publishedReleaseSchema = systemReleaseSchema.extend({
   draft: z.boolean(),
 })

@@ -6790,6 +6790,10 @@
     "Average RPM (today)": "Средний RPM (сегодня)",
     "Today used": "Расход за сегодня",
     "Usage today": "Расход за сегодня",
-    "Site-wide": "Весь сайт"
+    "Site-wide": "Весь сайт",
+    "Custom build": "Пользовательская сборка",
+    "Upstream base: {{version}}": "Основа: {{version}}",
+    "Upstream base": "Основа",
+    "Custom build number": "Номер сборки"
   }
 }

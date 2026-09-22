@@ -126,8 +126,18 @@ export function SystemUpdateDialog(props: SystemUpdateDialogProps) {
       <dl className='grid min-w-0 gap-3 text-sm sm:grid-cols-2'>
         <div className='min-w-0'>
           <dt className='text-muted-foreground'>{t('Current version')}</dt>
-          <dd className='font-medium break-all'>
+          <dd className='flex flex-wrap items-center gap-2 font-medium break-all'>
             {update.currentVersion || t('Unknown version')}
+            {update.isCustomBuild && update.customBaseVersion && (
+              <span className='inline-flex items-center gap-2'>
+                <Badge variant='secondary'>{t('Custom build')}</Badge>
+                <span className='text-muted-foreground text-xs'>
+                  {t('Upstream base: {{version}}', {
+                    version: update.customBaseVersion,
+                  })}
+                </span>
+              </span>
+            )}
           </dd>
         </div>
         <div className='min-w-0'>

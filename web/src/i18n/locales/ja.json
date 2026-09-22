@@ -6790,6 +6790,10 @@
     "Average RPM (today)": "平均RPM（今日）",
     "Today used": "今日の消費",
     "Usage today": "今日の使用量",
-    "Site-wide": "サイト全体"
+    "Site-wide": "サイト全体",
+    "Custom build": "カスタムビルド",
+    "Upstream base: {{version}}": "上流ベース: {{version}}",
+    "Upstream base": "上流ベース",
+    "Custom build number": "カスタム番号"
   }
 }

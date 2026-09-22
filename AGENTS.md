@@ -36,6 +36,24 @@ This is an AI API gateway/proxy built with Go. It aggregates 40+ upstream AI pro
 - Usage: `useTranslation()` hook, call `t('English key')` in components
 - CLI tools: `bun run i18n:sync` (from `web/`)
 
+## Custom fork (branch `custom`) — deployment & local env
+
+This repository is the `Yoahoug/new-api` fork; branch `custom` carries second-party
+modifications on top of upstream `QuantumNous/new-api`.
+
+- **Mandatory read:** Before any work involving versioning, local dev environment,
+  i18n locale edits, or server deployment, Read `.agents/rules/custom-deploy.md` in
+  full and follow it. It defines the `<upstream>-custom.<n>` version scheme, the
+  local dev/test environment, and the production deploy runbook for 10.66.66.66.
+- **Deployment gate:** Pulling new commits on the server, rebuilding the image, and
+  switching the production container MUST only happen when the user explicitly
+  issues a build/deploy instruction (standalone or embedded in another request).
+  Writing code, committing, and pushing to GitHub do not require that gate.
+- Any i18n locale file edit MUST restore the protected
+  `footer.new\u0061pi.projectAttributionSuffix` key bytes afterwards (see the rule
+  file for the exact snippet); the protected-identifier policy above applies with
+  no exceptions.
+
 ## Rules
 
 ### Common Code Quality

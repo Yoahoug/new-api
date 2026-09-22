@@ -83,6 +83,12 @@ const LazyLogStatCards = lazy(() =>
   }))
 )
 
+const LazyTodayStatCards = lazy(() =>
+  import('./components/models/today-stat-cards').then((m) => ({
+    default: m.TodayStatCards,
+  }))
+)
+
 const LazyModelCharts = lazy(() =>
   import('./components/models/model-charts').then((m) => ({
     default: m.ModelCharts,
@@ -354,6 +360,15 @@ export function Dashboard() {
                     filters={modelFilters}
                     onDataUpdate={handleDataUpdate}
                   />
+                </Suspense>
+              </FadeIn>
+              <FadeIn delay={0.05}>
+                <Suspense
+                  fallback={
+                    <div className='h-24 overflow-hidden rounded-lg border' />
+                  }
+                >
+                  <LazyTodayStatCards />
                 </Suspense>
               </FadeIn>
               {isAdmin && (

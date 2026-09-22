@@ -27,6 +27,12 @@ export {
   buildDefaultDashboardFilters,
 } from './filters'
 export {
+  calculateOfficialCost,
+  formatOfficialCNY,
+  VENDOR_LABEL_KEYS,
+} from './official-prices'
+export type { OfficialCostResult, OfficialVendor } from './official-prices'
+export {
   getLatencyColorClass,
   testUrlLatency,
   openExternalSpeedTest,

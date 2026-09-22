@@ -694,6 +694,57 @@ func SumUsedToken(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	return token
 }
 
+// UserDayUsage 按用户(×模型)聚合的当天用量,供"今日消耗"与缓存率、
+// 官方牌价估算使用。
+type UserDayUsage struct {
+	Username         string `json:"username"`
+	ModelName        string `json:"model_name"`
+	Quota            int64  `json:"quota"`
+	PromptTokens     int64  `json:"prompt_tokens"`
+	CompletionTokens int64  `json:"completion_tokens"`
+	CacheTokens      int64  `json:"cache_tokens"`
+	Count            int64  `json:"count"`
+}
+
+func GetUserDayUsage(startTimestamp int64, endTimestamp int64, username string) ([]*UserDayUsage, error) {
+	cacheExpr := dayUsageCacheExpr()
+
+	var usage []*UserDayUsage
+	tx := LOG_DB.Table("logs").
+		Select("username, model_name, COALESCE(sum(quota), 0) as quota, COALESCE(sum(prompt_tokens), 0) as prompt_tokens, COALESCE(sum(completion_tokens), 0) as completion_tokens, "+cacheExpr+" as cache_tokens, count(*) as count").
+		Where("type = ?", LogTypeConsume)
+	if startTimestamp != 0 {
+		tx = tx.Where("created_at >= ?", startTimestamp)
+	}
+	if endTimestamp != 0 {
+		tx = tx.Where("created_at <= ?", endTimestamp)
+	}
+	if username != "" {
+		tx = tx.Where("username = ?", username)
+	}
+	err := tx.Group("username, model_name").Find(&usage).Error
+	if err != nil {
+		return nil, err
+	}
+	return usage, nil
+}
+
+func dayUsageCacheExpr() string {
+	switch {
+	case common.UsingLogDatabase(common.DatabaseTypeClickHouse):
+		// ClickHouse:other 存的是 JSON 字符串,用 JSONExtractString 取字段
+		return "COALESCE(sum(toInt64OrZero(JSONExtractString(other, 'cache_tokens'))), 0)"
+	case common.UsingLogDatabase(common.DatabaseTypePostgreSQL), common.UsingMainDatabase(common.DatabaseTypePostgreSQL):
+		// PostgreSQL:JSON 字符串字段用 ->> 取值再转整数
+		return "COALESCE(sum(CAST(NULLIF(other::json->>'cache_tokens', '') AS BIGINT)), 0)"
+	case common.UsingMainDatabase(common.DatabaseTypeMySQL):
+		return "COALESCE(sum(CAST(JSON_UNQUOTE(JSON_EXTRACT(`other`, '$.cache_tokens')) AS SIGNED)), 0)"
+	default:
+		// SQLite:json_extract 原生支持
+		return "COALESCE(sum(CAST(json_extract(other, '$.cache_tokens') AS INTEGER)), 0)"
+	}
+}
+
 func CountOldLog(ctx context.Context, targetTimestamp int64) (int64, error) {
 	var total int64
 	if err := LOG_DB.WithContext(ctx).Model(&Log{}).Where("created_at < ?", targetTimestamp).Count(&total).Error; err != nil {

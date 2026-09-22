@@ -6777,6 +6777,19 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Official API cost estimate": "Ước tính chi phí API chính thức",
+    "No list price": "Chưa có giá",
+    "Today usage": "Mức tiêu thụ hôm nay",
+    "Consumed today": "Đã tiêu thụ từ 0 giờ hôm nay",
+    "Official list prices, CNY": "Theo giá niêm yết chính thức (CNY)",
+    "Today requests": "Yêu cầu hôm nay",
+    "Today consumption": "Tiêu thụ hôm nay",
+    "Today tokens": "Token hôm nay",
+    "Cache hit rate": "Tỷ lệ trúng cache",
+    "Average RPM (today)": "RPM trung bình (hôm nay)",
+    "Today used": "Đã dùng hôm nay",
+    "Usage today": "Mức dùng hôm nay",
+    "Site-wide": "Toàn trang"
   }
 }

@@ -51,6 +51,27 @@ export async function getUserQuotaDates(
   return res.data
 }
 
+// Get per-user × per-model usage aggregated since local midnight (today).
+// Admin without `username` param returns all users; regular users are
+// server-side restricted to their own row.
+export interface TodayUsageItem {
+  username: string
+  model_name: string
+  quota: number
+  prompt_tokens: number
+  completion_tokens: number
+  cache_tokens: number
+  count: number
+}
+
+export async function getTodayUsage() {
+  const res = await api.get<{
+    success: boolean
+    data: TodayUsageItem[]
+  }>('/api/data/today')
+  return res.data
+}
+
 // ----------------------------------------------------------------------------
 // System Monitoring
 // ----------------------------------------------------------------------------

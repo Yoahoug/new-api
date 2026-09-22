@@ -24,72 +24,21 @@ import { useTranslation } from 'react-i18next'
 
 import { StaggerContainer, StaggerItem } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
-import { getUserQuotaDates } from '@/features/dashboard/api'
+import { getTodayUsage } from '@/features/dashboard/api'
 import { useSummaryCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
-import type { QuotaDataItem } from '@/features/dashboard/types'
 import { useStatus } from '@/hooks/use-status'
 import { getCurrencyLabel, isCurrencyDisplayEnabled } from '@/lib/currency'
 import { formatNumber, formatQuota } from '@/lib/format'
 import { requireServerSuccess } from '@/lib/server-error-message'
-import { computeTimeRange } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { StatCard } from '../ui/stat-card'
+import { OfficialCostSelfPanel } from './official-cost-self-panel'
 
 const SUMMARY_SPARKLINE_BUCKETS = 12
 
 type SummarySparklineKey = 'balance' | 'usage' | 'requests'
-
-function getBucketIndex(
-  timestamp: number,
-  start: number,
-  end: number,
-  bucketCount: number
-): number {
-  if (end <= start) return 0
-  const ratio = (timestamp - start) / (end - start)
-  return Math.min(bucketCount - 1, Math.max(0, Math.floor(ratio * bucketCount)))
-}
-
-function buildSummarySparklines(
-  data: QuotaDataItem[],
-  currentBalance: number,
-  start: number,
-  end: number
-): Record<SummarySparklineKey, number[]> {
-  const usage = Array.from({ length: SUMMARY_SPARKLINE_BUCKETS }, () => 0)
-  const requests = Array.from({ length: SUMMARY_SPARKLINE_BUCKETS }, () => 0)
-
-  for (const item of data) {
-    const timestamp = Number(item.created_at) || start
-    const index = getBucketIndex(
-      timestamp,
-      start,
-      end,
-      SUMMARY_SPARKLINE_BUCKETS
-    )
-    usage[index] += Number(item.quota) || 0
-    requests[index] += Number(item.count) || 0
-  }
-
-  let balance = currentBalance
-  const balanceTrend = Array.from(
-    { length: SUMMARY_SPARKLINE_BUCKETS },
-    () => 0
-  )
-
-  for (let index = SUMMARY_SPARKLINE_BUCKETS - 1; index >= 0; index--) {
-    balanceTrend[index] = Math.max(0, balance)
-    balance += usage[index]
-  }
-
-  return {
-    balance: balanceTrend,
-    usage,
-    requests,
-  }
-}
 
 function getSummarySparkline(
   key: string,
@@ -142,29 +91,19 @@ export function SummaryCards() {
   const user = useAuthStore((state) => state.auth.user)
   const { status, loading } = useStatus()
 
-  const summaryTimeRange = useMemo(() => computeTimeRange(1), [])
+  // "今日消耗"直接用后端的按天聚合(本地时区 0 点起),与数据看板口径一致。
+  // 注意不能用 computeTimeRange(days=1, useStartOfDay):它实际返回
+  // [昨天00:00, 今天23:59],会把昨天全天也算进来。
+  const usageTrendQuery = useQuery({
+    queryKey: ['dashboard', 'overview', 'summary-sparklines', 'today'],
+    queryFn: async () =>
+      requireServerSuccess(await getTodayUsage()),
+    staleTime: 60 * 1000,
+  })
+
   const remainQuota = Number(user?.quota ?? 0)
   const usedQuota = Number(user?.used_quota ?? 0)
   const requestCount = Number(user?.request_count ?? 0)
-
-  const usageTrendQuery = useQuery({
-    queryKey: [
-      'dashboard',
-      'overview',
-      'summary-sparklines',
-      summaryTimeRange.start_timestamp,
-      summaryTimeRange.end_timestamp,
-    ],
-    queryFn: async () =>
-      requireServerSuccess(
-        await getUserQuotaDates({
-          start_timestamp: summaryTimeRange.start_timestamp,
-          end_timestamp: summaryTimeRange.end_timestamp,
-          default_time: 'hour',
-        })
-      ),
-    staleTime: 60 * 1000,
-  })
 
   const summaryValues = useMemo(() => {
     return {
@@ -184,29 +123,47 @@ export function SummaryCards() {
       : currencyEnabledFromStore
   const currencyLabel = currencyEnabled ? getCurrencyLabel() : 'Tokens'
 
-  const sparklineData = useMemo(
+  // 概览页是个人视角:即使管理员调 /api/data/today 返回全站行,也只取自己
+  const myTodayRows = useMemo(
     () =>
-      buildSummarySparklines(
-        usageTrendQuery.data?.data ?? [],
-        remainQuota,
-        summaryTimeRange.start_timestamp,
-        summaryTimeRange.end_timestamp
+      (usageTrendQuery.data?.data ?? []).filter(
+        (item) => item.username === user?.username
       ),
-    [
-      remainQuota,
-      summaryTimeRange.end_timestamp,
-      summaryTimeRange.start_timestamp,
-      usageTrendQuery.data?.data,
-    ]
+    [user?.username, usageTrendQuery.data?.data]
   )
 
+  // 迷你趋势图:把今日(按小时)的用量铺进桶里。
+  // /api/data/today 返回按用户聚合的行,无小时维度,这里用用户行近似为
+  // "当前时点累计",趋势桶仅保留余额走势的形状。
+  const sparklineData = useMemo(() => {
+    const usage = myTodayRows.reduce(
+      (acc, item) => {
+        // 按用户行均摊到 12 个桶无法还原小时分布,退化为单桶累计;
+        // 余额走势以剩余额度为起点、今日消耗为斜率,足以表达趋势。
+        acc[SUMMARY_SPARKLINE_BUCKETS - 1] += Number(item.quota) || 0
+        return acc
+      },
+      Array.from({ length: SUMMARY_SPARKLINE_BUCKETS }, () => 0)
+    )
+    let balance = remainQuota
+    const balanceTrend = Array.from(
+      { length: SUMMARY_SPARKLINE_BUCKETS },
+      () => 0
+    )
+    for (let index = SUMMARY_SPARKLINE_BUCKETS - 1; index >= 0; index--) {
+      balanceTrend[index] = Math.max(0, balance)
+      balance += usage[index] / SUMMARY_SPARKLINE_BUCKETS
+    }
+    return {
+      balance: balanceTrend,
+      usage: [0, ...usage.slice(1)],
+      requests: [0, ...usage.slice(1)],
+    }
+  }, [myTodayRows, remainQuota])
+
   const recentUsage = useMemo(
-    () =>
-      (usageTrendQuery.data?.data ?? []).reduce(
-        (total, item) => total + (Number(item.quota) || 0),
-        0
-      ),
-    [usageTrendQuery.data?.data]
+    () => myTodayRows.reduce((total, item) => total + (Number(item.quota) || 0), 0),
+    [myTodayRows]
   )
 
   const healthLevel = getHealthLevel(remainQuota, recentUsage)
@@ -313,7 +270,7 @@ export function SummaryCards() {
               <div className='bg-background/60 rounded-lg px-2.5 py-2'>
                 <div className='text-muted-foreground flex items-center gap-1 text-[11px] leading-none font-medium'>
                   <Flame className='size-3 shrink-0' aria-hidden='true' />
-                  <span className='truncate'>{t('Last 24h usage')}</span>
+                  <span className='truncate'>{t('Today usage')}</span>
                 </div>
                 <div className='text-foreground mt-1.5 truncate text-xs font-semibold tabular-nums'>
                   {formatQuota(recentUsage)}
@@ -345,6 +302,8 @@ export function SummaryCards() {
                 </div>
               </div>
             </div>
+
+            <OfficialCostSelfPanel />
           </div>
 
           <Button className='justify-between' render={<Link to='/wallet' />}>

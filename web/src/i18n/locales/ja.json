@@ -6777,6 +6777,19 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Official API cost estimate": "公式API料金の見積もり",
+    "No list price": "定価なし",
+    "Today usage": "今日の使用量",
+    "Consumed today": "本日0時からの消費量",
+    "Official list prices, CNY": "公式定価（人民元）で估算",
+    "Today requests": "今日のリクエスト",
+    "Today consumption": "今日の消費",
+    "Today tokens": "今日のトークン",
+    "Cache hit rate": "キャッシュヒット率",
+    "Average RPM (today)": "平均RPM（今日）",
+    "Today used": "今日の消費",
+    "Usage today": "今日の使用量",
+    "Site-wide": "サイト全体"
   }
 }

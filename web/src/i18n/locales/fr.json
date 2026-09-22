@@ -6777,6 +6777,19 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Official API cost estimate": "Estimation du coût API officiel",
+    "No list price": "Pas de tarif officiel",
+    "Today usage": "Consommation du jour",
+    "Consumed today": "Consommé depuis minuit",
+    "Official list prices, CNY": "Estimé aux tarifs officiels (CNY)",
+    "Today requests": "Requêtes du jour",
+    "Today consumption": "Consommation du jour",
+    "Today tokens": "Tokens du jour",
+    "Cache hit rate": "Taux de cache",
+    "Average RPM (today)": "RPM moyen (jour)",
+    "Today used": "Consommé aujourd'hui",
+    "Usage today": "Utilisation du jour",
+    "Site-wide": "Tout le site"
   }
 }

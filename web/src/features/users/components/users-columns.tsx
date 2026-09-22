@@ -32,7 +32,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { getCurrencyDisplay } from '@/lib/currency'
+import { formatQuotaWithCurrency, getCurrencyDisplay } from '@/lib/currency'
 import { formatQuota } from '@/lib/format'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
@@ -45,12 +45,14 @@ import {
 import type { User } from '../types'
 import { DataTableRowActions } from './data-table-row-actions'
 import { UserQuotaCell } from './user-quota-cell'
+import { useTodayQuotaByUser } from '../hooks/use-today-quota'
 
 export function useUsersColumns(): ColumnDef<User>[] {
   const { t } = useTranslation()
   const currencyConfig = useSystemConfigStore((state) => state.config.currency)
   const { meta: currency } = getCurrencyDisplay()
   const quotaUnit = currency.kind === 'tokens' ? t('Tokens') : currency.symbol
+  const todayQuotaQuery = useTodayQuotaByUser()
   return useMemo<ColumnDef<User>[]>(
     () => [
       {
@@ -195,6 +197,26 @@ export function useUsersColumns(): ColumnDef<User>[] {
         meta: { mobileOrder: 40 },
       },
       {
+        id: 'today_quota',
+        header: t('Today used'),
+        cell: ({ row }) => {
+          const quota = todayQuotaQuery.data?.get(row.original.username) ?? 0
+          return (
+            <span
+              data-table-text='secondary'
+              className='text-muted-foreground text-sm tabular-nums'
+            >
+              {quota === 0
+                ? '—'
+                : formatQuotaWithCurrency(quota, { showSymbol: false })}
+            </span>
+          )
+        },
+        enableSorting: false,
+        size: 110,
+        meta: { mobileOrder: 45 },
+      },
+      {
         accessorKey: 'group',
         header: t('User Group'),
         cell: ({ row }) => {
@@ -298,6 +320,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
     ],
     // formatQuota reads the currency configuration from the store.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, quotaUnit, currencyConfig]
+    [t, quotaUnit, currencyConfig, todayQuotaQuery.data]
   )
 }

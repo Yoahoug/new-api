@@ -6777,6 +6777,19 @@
     "Zhipu": "智譜",
     "Zhipu GLM": "智譜GLM",
     "Zhipu V4": "智譜 V4",
-    "Zoom": "縮放"
+    "Zoom": "縮放",
+    "Official API cost estimate": "官方 API 計費估算",
+    "No list price": "無牌價",
+    "Today usage": "今日消耗",
+    "Consumed today": "今日 0 點起消耗量",
+    "Official list prices, CNY": "按官方牌價估算（人民幣）",
+    "Today requests": "今日請求",
+    "Today consumption": "今日消耗",
+    "Today tokens": "今日 Tokens",
+    "Cache hit rate": "快取命中率",
+    "Average RPM (today)": "今日平均 RPM",
+    "Today used": "今日消耗",
+    "Usage today": "今日用量",
+    "Site-wide": "全站"
   }
 }

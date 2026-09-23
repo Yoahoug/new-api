@@ -1,0 +1,68 @@
+# Build the custom-fork image and publish to GHCR for the 10.66.66.66 deploy.
+# Triggered on every push to custom (the deploy gate stays manual on the
+# server); GHA cache keeps repeat builds fast.
+name: Custom image (GHCR)
+
+permissions:
+  contents: read
+  packages: write
+
+on:
+  push:
+    branches:
+      - custom
+    paths:
+      - 'VERSION'
+      - 'Dockerfile'
+      - 'web/**'
+      - 'relaykit/**'
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+  workflow_dispatch:
+
+env:
+  IMAGE: ghcr.io/yoahoug/new-api-custom
+
+jobs:
+  build:
+    name: Build & push (amd64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+
+      - name: Read version
+        id: version
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c99871dec2022cc055c062a10cc1a1310835ceb4 # v4.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:local
+            ${{ env.IMAGE }}:${{ steps.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          echo "### Custom image built" >> $GITHUB_STEP_SUMMARY
+          echo "- Version: \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Digest: \`${{ steps.build.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY

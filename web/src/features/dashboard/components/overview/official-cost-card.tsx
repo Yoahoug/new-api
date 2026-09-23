@@ -157,7 +157,7 @@ export function OfficialCostCard() {
         <ChartContainer config={CHART_CONFIG} className='h-36 w-full'>
           <AreaChart
             data={series}
-            margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+            margin={{ top: 8, right: 20, left: 0, bottom: 0 }}
           >
             <defs>
               <linearGradient id='officialCostFill' x1='0' y1='0' x2='0' y2='1'>

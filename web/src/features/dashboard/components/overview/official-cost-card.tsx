@@ -140,7 +140,7 @@ export function OfficialCostCard() {
       empty={!query.isLoading && totalCNY <= 0}
       emptyMessage={t('No data available')}
     >
-      <div className='flex h-full flex-col gap-3 p-3 sm:p-4'>
+      <div className='flex h-full flex-col gap-3 px-3 pb-3 pt-2.5 sm:px-4 sm:pb-4 sm:pt-3'>
         <div className='grid grid-cols-2 gap-2 sm:gap-3'>
           <div className='bg-muted/40 flex min-h-20 flex-col justify-center rounded-xl border px-3 py-3 sm:min-h-24 sm:px-4 sm:py-4'>
             <div className='text-muted-foreground flex items-center gap-1 text-[11px] leading-none font-medium'>

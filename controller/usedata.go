@@ -109,6 +109,49 @@ func GetTodayUsage(c *gin.Context) {
 	})
 }
 
+// GetDailyUsage 返回最近 days 天(默认 7,上限 90)按 用户×日期×模型
+// 聚合的每日用量,含 token 明细,供官方牌价估算历史图表使用。
+// 普通用户服务端强制只查自己;管理员传 username 查指定用户,
+// 传 all 则查全站,不传默认查自己。
+func GetDailyUsage(c *gin.Context) {
+	role := c.GetInt("role")
+	days := 7
+	if raw := c.Query("days"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed <= 0 || parsed > 90 {
+			common.ApiErrorMsg(c, "invalid days")
+			return
+		}
+		days = parsed
+	}
+	now := time.Now()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	startTimestamp := startOfDay.AddDate(0, 0, -(days - 1)).Unix()
+	endTimestamp := now.Unix()
+
+	username := c.GetString("username")
+	if role >= common.RoleAdminUser {
+		switch c.Query("username") {
+		case "all":
+			username = ""
+		case "":
+		default:
+			username = c.Query("username")
+		}
+	}
+
+	usage, err := model.GetUserDailyUsage(startTimestamp, endTimestamp, username)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    usage,
+	})
+}
+
 func GetAllFlowQuotaDates(c *gin.Context) {
 	startTimestamp, endTimestamp, ok := parseFlowQuotaTimeRange(c)
 	if !ok {

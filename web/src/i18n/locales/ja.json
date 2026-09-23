@@ -6794,6 +6794,8 @@
     "Custom build": "カスタムビルド",
     "Upstream base: {{version}}": "上流ベース: {{version}}",
     "Upstream base": "上流ベース",
-    "Custom build number": "カスタム番号"
+    "Custom build number": "カスタム番号",
+    "Estimated at official list prices (CNY)": "公式定価での見積もり (人民元)",
+    "Last 7 days total": "過去7日間の合計"
   }
 }

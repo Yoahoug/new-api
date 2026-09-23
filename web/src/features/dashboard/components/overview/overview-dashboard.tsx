@@ -66,6 +66,7 @@ import {
 import { AnnouncementsPanel } from './announcements-panel'
 import { ApiInfoPanel } from './api-info-panel'
 import { FAQPanel } from './faq-panel'
+import { OfficialCostCard } from './official-cost-card'
 import { PerformanceHealthPanel } from './performance-health-panel'
 import { SummaryCards } from './summary-cards'
 import { UptimePanel } from './uptime-panel'
@@ -790,21 +791,15 @@ export function OverviewDashboard() {
           <SummaryCards />
 
           {showContentPanels && (
-            <CardStaggerContainer
-              className={cn(
-                'grid grid-cols-1 gap-4',
-                showLeftContentPanels &&
-                  showUptimePanel &&
-                  'xl:grid-cols-[minmax(0,1fr)_22rem]'
-              )}
-            >
+            <CardStaggerContainer className='grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
               {showLeftContentPanels && (
                 <div
                   className={cn(
                     'grid min-w-0 grid-cols-1 gap-4',
                     (showApiInfoPanel ||
                       showAnnouncementsPanel ||
-                      showFAQPanel) &&
+                      showFAQPanel ||
+                      showUptimePanel) &&
                       'lg:grid-cols-2'
                   )}
                 >
@@ -828,13 +823,16 @@ export function OverviewDashboard() {
                       <FAQPanel />
                     </CardStaggerItem>
                   )}
+                  {showUptimePanel && (
+                    <CardStaggerItem>
+                      <UptimePanel />
+                    </CardStaggerItem>
+                  )}
                 </div>
               )}
-              {showUptimePanel && (
-                <CardStaggerItem>
-                  <UptimePanel />
-                </CardStaggerItem>
-              )}
+              <CardStaggerItem>
+                <OfficialCostCard />
+              </CardStaggerItem>
             </CardStaggerContainer>
           )}
         </div>

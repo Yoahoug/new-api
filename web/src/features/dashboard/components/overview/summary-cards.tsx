@@ -34,7 +34,6 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { StatCard } from '../ui/stat-card'
-import { OfficialCostSelfPanel } from './official-cost-self-panel'
 
 const SUMMARY_SPARKLINE_BUCKETS = 12
 
@@ -302,8 +301,6 @@ export function SummaryCards() {
                 </div>
               </div>
             </div>
-
-            <OfficialCostSelfPanel />
           </div>
 
           <Button className='justify-between' render={<Link to='/wallet' />}>

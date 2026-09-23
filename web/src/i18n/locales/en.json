@@ -6794,6 +6794,8 @@
     "Custom build": "Custom build",
     "Upstream base: {{version}}": "Upstream base: {{version}}",
     "Upstream base": "Upstream base",
-    "Custom build number": "Custom build number"
+    "Custom build number": "Custom build number",
+    "Estimated at official list prices (CNY)": "Estimated at official list prices (CNY)",
+    "Last 7 days total": "Last 7 days total"
   }
 }

@@ -745,6 +745,59 @@ func dayUsageCacheExpr() string {
 	}
 }
 
+// dayUsageDayExpr 按日志库方言返回把 created_at(秒级 Unix)截断到本地
+// 日期(0 点)的表达式,输出为 YYYY-MM-DD 字符串,供按天聚合分组。
+func dayUsageDayExpr() string {
+	switch {
+	case common.UsingLogDatabase(common.DatabaseTypeClickHouse):
+		return "formatDateTime(toDateTime(created_at, 'Asia/Shanghai'), '%F')"
+	case common.UsingLogDatabase(common.DatabaseTypePostgreSQL), common.UsingMainDatabase(common.DatabaseTypePostgreSQL):
+		return "TO_CHAR(TO_TIMESTAMP(created_at), 'YYYY-MM-DD')"
+	case common.UsingMainDatabase(common.DatabaseTypeMySQL):
+		return "DATE_FORMAT(FROM_UNIXTIME(created_at), '%Y-%m-%d')"
+	default:
+		// SQLite:date() 接受秒级 Unix 时间戳
+		return "date(created_at, 'unixepoch')"
+	}
+}
+
+// UserDailyUsage 按 用户×日期×模型 聚合的每日用量,供官方牌价估算
+// 历史图表等前端展示使用;字段口径与 UserDayUsage 一致。
+type UserDailyUsage struct {
+	Username         string `json:"username"`
+	Day              string `json:"day"`
+	ModelName        string `json:"model_name"`
+	Quota            int64  `json:"quota"`
+	PromptTokens     int64  `json:"prompt_tokens"`
+	CompletionTokens int64  `json:"completion_tokens"`
+	CacheTokens      int64  `json:"cache_tokens"`
+	Count            int64  `json:"count"`
+}
+
+func GetUserDailyUsage(startTimestamp int64, endTimestamp int64, username string) ([]*UserDailyUsage, error) {
+	cacheExpr := dayUsageCacheExpr()
+	dayExpr := dayUsageDayExpr()
+
+	var usage []*UserDailyUsage
+	tx := LOG_DB.Table("logs").
+		Select("username, "+dayExpr+" as day, model_name, COALESCE(sum(quota), 0) as quota, COALESCE(sum(prompt_tokens), 0) as prompt_tokens, COALESCE(sum(completion_tokens), 0) as completion_tokens, "+cacheExpr+" as cache_tokens, count(*) as count").
+		Where("type = ?", LogTypeConsume)
+	if startTimestamp != 0 {
+		tx = tx.Where("created_at >= ?", startTimestamp)
+	}
+	if endTimestamp != 0 {
+		tx = tx.Where("created_at <= ?", endTimestamp)
+	}
+	if username != "" {
+		tx = tx.Where("username = ?", username)
+	}
+	err := tx.Group("username, day, model_name").Order("day ASC").Find(&usage).Error
+	if err != nil {
+		return nil, err
+	}
+	return usage, nil
+}
+
 func CountOldLog(ctx context.Context, targetTimestamp int64) (int64, error) {
 	var total int64
 	if err := LOG_DB.WithContext(ctx).Model(&Log{}).Where("created_at < ?", targetTimestamp).Count(&total).Error; err != nil {

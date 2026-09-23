@@ -6794,6 +6794,8 @@
     "Custom build": "Bản dựng tùy chỉnh",
     "Upstream base: {{version}}": "Nền tảng gốc: {{version}}",
     "Upstream base": "Nền tảng gốc",
-    "Custom build number": "Số bản dựng"
+    "Custom build number": "Số bản dựng",
+    "Estimated at official list prices (CNY)": "Ước tính theo giá niêm yết chính thức (CNY)",
+    "Last 7 days total": "Tổng 7 ngày gần nhất"
   }
 }

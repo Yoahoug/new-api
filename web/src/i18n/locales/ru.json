@@ -6794,6 +6794,8 @@
     "Custom build": "Пользовательская сборка",
     "Upstream base: {{version}}": "Основа: {{version}}",
     "Upstream base": "Основа",
-    "Custom build number": "Номер сборки"
+    "Custom build number": "Номер сборки",
+    "Estimated at official list prices (CNY)": "Оценка по официальным ценам (CNY)",
+    "Last 7 days total": "Всего за 7 дней"
   }
 }

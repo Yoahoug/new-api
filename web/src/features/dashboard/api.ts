@@ -64,11 +64,31 @@ export interface TodayUsageItem {
   count: number
 }
 
+export interface DailyUsageItem extends TodayUsageItem {
+  day: string
+}
+
 export async function getTodayUsage() {
   const res = await api.get<{
     success: boolean
     data: TodayUsageItem[]
   }>('/api/data/today')
+  return res.data
+}
+
+// Daily per-user × per-model usage for the last `days` days (default 7,
+// server-capped at 90), including token details for official cost estimates.
+// Admin may pass username=all for site-wide rows.
+export async function getDailyUsage(params?: { days?: number; username?: string }) {
+  const res = await api.get<{
+    success: boolean
+    data: DailyUsageItem[]
+  }>('/api/data/daily', {
+    params: {
+      days: params?.days,
+      username: params?.username,
+    },
+  })
   return res.data
 }
 

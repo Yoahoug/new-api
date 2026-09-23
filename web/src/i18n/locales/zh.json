@@ -6794,6 +6794,8 @@
     "Custom build": "二改版",
     "Upstream base: {{version}}": "上游基线: {{version}}",
     "Upstream base": "上游基线",
-    "Custom build number": "二改序号"
+    "Custom build number": "二改序号",
+    "Estimated at official list prices (CNY)": "按官方牌价估算 (人民币)",
+    "Last 7 days total": "近 7 天合计"
   }
 }

@@ -6794,6 +6794,8 @@
     "Custom build": "Build personnalisé",
     "Upstream base: {{version}}": "Base amont : {{version}}",
     "Upstream base": "Base amont",
-    "Custom build number": "Numéro de build"
+    "Custom build number": "Numéro de build",
+    "Estimated at official list prices (CNY)": "Estimé aux tarifs officiels (CNY)",
+    "Last 7 days total": "Total des 7 derniers jours"
   }
 }

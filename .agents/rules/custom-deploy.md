@@ -85,40 +85,44 @@ enc = raw.replace(b'"footer.newapi.projectAttributionSuffix"',
 
 ## 服务器部署(server-ops skill,10.66.66.66)
 
-服务器架构(2026-09-22 起):
+服务器架构(2026-09-23 起):
 
 - 代码:`/data/appdata/new-api-custom/`(fork clone,`git fetch origin custom && git reset --hard origin/custom` 同步;GitHub 需走代理 `git -c http.proxy=http://127.0.0.1:7890`)
 - 生产:`/data/appdata/new-api/`(compose 三件套:`docker-compose.yml` 上游原版 +
-  `docker-compose.override.yml` 容器改名 + `docker-compose.deploy.yml` 本地构建 override)
-- 镜像:`new-api-custom:local`(在 new-api-custom 目录构建);postgres/redis 容器
-  不重建,数据卷复用
+  `docker-compose.override.yml` 容器改名 + `docker-compose.deploy.yml` GHCR 镜像 override)
+- **镜像:`ghcr.io/yoahoug/new-api-custom:local`,由 GitHub Actions 构建**
+  (workflow `.github/workflows/custom-docker.yml`:push 到 custom 分支且代码变更时
+  自动构建 amd64 并推 GHCR,带 GHA 缓存;workflow 文件必须同时存在于 main
+  (默认分支,GitHub 只在默认分支注册 workflow)和 custom 分支)
+- 实测速度:无缓存 5分51秒;吃 GHA 缓存 32秒;服务器匿名拉取 15.6 秒
+  (仓库 public,包继承 public,服务器**无需 docker login**)
+- 旧的本机构建配置备份在 `docker-compose.deploy.yml.bak-local-build`
+  (镜像 `new-api-custom:local`,应急时改回引用即可)
+- postgres/redis 容器不重建,数据卷复用
 - 数据库备份:`/data/appdata/new-api/backups/`(部署前做 pg_dump 到
   `pre-custom-deploy-<时间>.sql.gz`)
 
 ### 标准部署流程(需用户明确指令后执行)
 
 ```bash
-# 1. 服务器同步代码
-cd /data/appdata/new-api-custom
-git fetch origin custom && git reset --hard origin/custom
+# 0. 触发构建:推 VERSION/代码到 custom 分支后,Actions 自动构建
+#    (或手动:gh workflow run custom-docker.yml --repo Yoahoug/new-api --ref custom)
+#    等待 run 成功(吃缓存约 1 分钟)
 
-# 2. 构建(走 mihomo 代理;约 4~6 分钟增量,10~20 分钟冷构建)
-docker compose -f docker-compose.yml -f docker-compose.deploy.yml build new-api
+# 1. 服务器拉新镜像
+docker pull ghcr.io/yoahoug/new-api-custom:local
 
-# 3.(可选但推荐)先起临时验证容器,确认健康/迁移/版本
-docker run -d --name new-api-verify --network new-api_new-api-network \
-  -v /data/appdata/new-api/logs:/app/logs \
-  -e SQL_DSN=postgresql://root:123456@postgres:5432/new-api \
-  -e REDIS_CONN_STRING=redis://:123456@new-api-redis:6379 \
-  -e TZ=Asia/Shanghai new-api-custom:local --log-dir /app/logs
-# 检查后 docker rm -f new-api-verify
+# 2. 备份数据库
+TS=$(date +%Y%m%d-%H%M%S)
+docker exec new-api-postgres sh -c "pg_dump -U root -d new-api -Fc" \
+  > /data/appdata/new-api/backups/pre-custom-deploy-$TS.sql.gz
 
-# 4. 无缝切换(停机约 5 秒)
+# 3. 无缝切换(停机约 5 秒)
 cd /data/appdata/new-api
 docker compose -f docker-compose.yml -f docker-compose.override.yml \
   -f docker-compose.deploy.yml up -d new-api
 
-# 5. 验证
+# 4. 验证
 curl -s http://127.0.0.1:3000/api/status | grep version
 docker ps --filter name=new-api   # healthy
 docker logs new-api --since 2m    # 无 error/panic

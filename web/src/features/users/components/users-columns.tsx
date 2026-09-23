@@ -36,6 +36,8 @@ import { formatQuotaWithCurrency, getCurrencyDisplay } from '@/lib/currency'
 import { formatQuota } from '@/lib/format'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
+import { formatOfficialCNY } from '@/features/dashboard/lib'
+
 import {
   USER_STATUS,
   USER_STATUSES,
@@ -200,16 +202,38 @@ export function useUsersColumns(): ColumnDef<User>[] {
         id: 'today_quota',
         header: t('Today used'),
         cell: ({ row }) => {
-          const quota = todayQuotaQuery.data?.get(row.original.username) ?? 0
+          const usage = todayQuotaQuery.data
+          const quota = usage?.quota.get(row.original.username) ?? 0
+          const officialCNY = usage?.officialCNY.get(row.original.username) ?? 0
+          if (quota === 0) {
+            return (
+              <span
+                data-table-text='secondary'
+                className='text-muted-foreground text-sm tabular-nums'
+              >
+                —
+              </span>
+            )
+          }
           return (
-            <span
-              data-table-text='secondary'
-              className='text-muted-foreground text-sm tabular-nums'
-            >
-              {quota === 0
-                ? '—'
-                : formatQuotaWithCurrency(quota, { showSymbol: false })}
-            </span>
+            <div className='flex flex-col items-start gap-1'>
+              <span
+                data-table-text='secondary'
+                className='text-muted-foreground text-sm tabular-nums'
+              >
+                {formatQuotaWithCurrency(quota, { showSymbol: false })}
+              </span>
+              {officialCNY > 0 && (
+                <span
+                  className='bg-muted/60 text-muted-foreground inline-flex max-w-full items-center rounded-full px-1.5 py-px font-mono text-[10px] leading-4 tabular-nums'
+                  title={t('Official API cost estimate')}
+                >
+                  <span className='truncate'>
+                    ≈{formatOfficialCNY(officialCNY)}
+                  </span>
+                </span>
+              )}
+            </div>
           )
         },
         enableSorting: false,

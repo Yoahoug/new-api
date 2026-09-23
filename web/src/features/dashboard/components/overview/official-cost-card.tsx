@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { Wallet } from 'lucide-react'
+import { CalendarDays, Flame, Wallet } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -134,79 +134,102 @@ export function OfficialCostCard() {
         </span>
       }
       description={t('Estimated at official list prices (CNY)')}
-      headerActions={
-        <div className='text-right'>
-          <div
-            className='text-foreground font-mono text-base font-bold tabular-nums'
-            title={`${todayCost.toFixed(6)} CNY`}
-          >
-            {todayCostDisplay}
-          </div>
-          <div className='text-muted-foreground text-[11px]'>
-            {t('Today usage')}
-          </div>
-        </div>
-      }
-      height='h-48'
+      height='h-full'
       contentClassName='p-0'
       loading={query.isLoading}
       empty={!query.isLoading && totalCNY <= 0}
       emptyMessage={t('No data available')}
     >
-      <div className='flex h-full flex-col gap-1 px-2 pb-2 pt-1'>
-        <ChartContainer config={CHART_CONFIG} className='h-36 w-full'>
-          <AreaChart
-            data={series}
-            margin={{ top: 8, right: 20, left: 0, bottom: 0 }}
-          >
-            <defs>
-              <linearGradient id='officialCostFill' x1='0' y1='0' x2='0' y2='1'>
-                <stop offset='0%' stopColor='var(--chart-2)' stopOpacity={0.35} />
-                <stop offset='100%' stopColor='var(--chart-2)' stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} strokeDasharray='3 3' />
-            <XAxis
-              dataKey='label'
-              tickLine={false}
-              axisLine={false}
-              tickMargin={6}
-              interval={0}
-              tick={{ fontSize: 10 }}
-            />
-            <YAxis
-              width={44}
-              tickLine={false}
-              axisLine={false}
-              tick={{ fontSize: 10 }}
-              tickFormatter={(value: number) =>
-                `¥${value >= 100 ? Math.round(value) : value.toFixed(value >= 1 ? 1 : 2)}`
-              }
-            />
-            <ChartTooltip
-              cursor={{ stroke: 'var(--border)' }}
-              content={
-                <ChartTooltipContent
-                  labelKey='label'
-                  nameKey='cost'
-                  formatter={(value) => formatOfficialCNY(Number(value))}
-                />
-              }
-            />
-            <Area
-              type='monotone'
-              dataKey='cost'
-              stroke='var(--chart-2)'
-              strokeWidth={2}
-              fill='url(#officialCostFill)'
-            />
-          </AreaChart>
-        </ChartContainer>
-        <div className='text-muted-foreground px-1.5 pb-0.5 text-[11px]'>
-          {t('Last 7 days total')}:{' '}
-          <span className='text-foreground font-mono font-semibold tabular-nums'>
-            {formatOfficialCNY(totalCNY)}
-          </span>
+      <div className='flex h-full flex-col gap-3 p-3 sm:p-4'>
+        <div className='grid grid-cols-2 gap-2 sm:gap-3'>
+          <div className='bg-muted/40 flex min-h-20 flex-col justify-center rounded-xl border px-3 py-3 sm:min-h-24 sm:px-4 sm:py-4'>
+            <div className='text-muted-foreground flex items-center gap-1 text-[11px] leading-none font-medium'>
+              <Flame className='size-3 shrink-0' aria-hidden='true' />
+              <span className='truncate'>{t('Today usage')}</span>
+            </div>
+            <div
+              className='text-foreground mt-2 truncate font-mono text-lg font-bold tabular-nums sm:text-xl'
+              title={`${todayCost.toFixed(6)} CNY`}
+            >
+              {todayCostDisplay}
+            </div>
+          </div>
+          <div className='bg-muted/40 flex min-h-20 flex-col justify-center rounded-xl border px-3 py-3 sm:min-h-24 sm:px-4 sm:py-4'>
+            <div className='text-muted-foreground flex items-center gap-1 text-[11px] leading-none font-medium'>
+              <CalendarDays className='size-3 shrink-0' aria-hidden='true' />
+              <span className='truncate'>{t('Last 7 days total')}</span>
+            </div>
+            <div
+              className='text-foreground mt-2 truncate font-mono text-lg font-bold tabular-nums sm:text-xl'
+              title={`${totalCNY.toFixed(6)} CNY`}
+            >
+              {totalCNY > 0 ? formatOfficialCNY(totalCNY) : '--'}
+            </div>
+          </div>
+        </div>
+        <div className='min-h-0 flex-1'>
+          <ChartContainer config={CHART_CONFIG} className='h-full w-full'>
+            <AreaChart
+              data={series}
+              margin={{ top: 8, right: 20, left: 0, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient
+                  id='officialCostFill'
+                  x1='0'
+                  y1='0'
+                  x2='0'
+                  y2='1'
+                >
+                  <stop
+                    offset='0%'
+                    stopColor='var(--chart-2)'
+                    stopOpacity={0.35}
+                  />
+                  <stop
+                    offset='100%'
+                    stopColor='var(--chart-2)'
+                    stopOpacity={0.02}
+                  />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} strokeDasharray='3 3' />
+              <XAxis
+                dataKey='label'
+                tickLine={false}
+                axisLine={false}
+                tickMargin={6}
+                interval={0}
+                tick={{ fontSize: 10 }}
+              />
+              <YAxis
+                width={44}
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 10 }}
+                tickFormatter={(value: number) =>
+                  `¥${value >= 100 ? Math.round(value) : value.toFixed(value >= 1 ? 1 : 2)}`
+                }
+              />
+              <ChartTooltip
+                cursor={{ stroke: 'var(--border)' }}
+                content={
+                  <ChartTooltipContent
+                    labelKey='label'
+                    nameKey='cost'
+                    formatter={(value) => formatOfficialCNY(Number(value))}
+                  />
+                }
+              />
+              <Area
+                type='monotone'
+                dataKey='cost'
+                stroke='var(--chart-2)'
+                strokeWidth={2}
+                fill='url(#officialCostFill)'
+              />
+            </AreaChart>
+          </ChartContainer>
         </div>
       </div>
     </PanelWrapper>

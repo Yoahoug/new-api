@@ -19,20 +19,39 @@ For commercial licensing, please contact support@quantumnous.com
 import { useQuery } from '@tanstack/react-query'
 
 import { getTodayUsage } from '@/features/dashboard/api'
+import { calculateOfficialCost } from '@/features/dashboard/lib'
 import { requireServerSuccess } from '@/lib/server-error-message'
 
-/** username -> 今日消耗 quota 映射,供用户列表"今日消耗"列使用 */
+export interface TodayUsageByUser {
+  /** username -> 今日消耗 quota */
+  quota: Map<string, number>
+  /** username -> 官方牌价估算(人民币元) */
+  officialCNY: Map<string, number>
+}
+
+/** 用户列表"今日消耗"列数据:quota 与官方 API 估价按 username 聚合 */
 export function useTodayQuotaByUser() {
   const query = useQuery({
     queryKey: ['users', 'today-usage'],
     queryFn: async () => requireServerSuccess(await getTodayUsage()),
-    select: (res) => {
-      const map = new Map<string, number>()
+    select: (res): TodayUsageByUser => {
+      // /api/data/today 按 用户×模型 分组,同一用户会有多行,需累加
+      const quota = new Map<string, number>()
+      const rowsByUser = new Map<string, typeof res.data>()
       for (const item of res.data || []) {
-        // /api/data/today 按 用户×模型 分组,同一用户会有多行,需累加
-        map.set(item.username, (map.get(item.username) ?? 0) + (Number(item.quota) || 0))
+        quota.set(
+          item.username,
+          (quota.get(item.username) ?? 0) + (Number(item.quota) || 0)
+        )
+        const rows = rowsByUser.get(item.username) ?? []
+        rows.push(item)
+        rowsByUser.set(item.username, rows)
       }
-      return map
+      const officialCNY = new Map<string, number>()
+      for (const [username, rows] of rowsByUser) {
+        officialCNY.set(username, calculateOfficialCost(rows).totalCNY)
+      }
+      return { quota, officialCNY }
     },
     staleTime: 60_000,
     retry: false,

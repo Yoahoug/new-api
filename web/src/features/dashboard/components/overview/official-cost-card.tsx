@@ -171,7 +171,7 @@ export function OfficialCostCard() {
               tickLine={false}
               axisLine={false}
               tickMargin={6}
-              minTickGap={18}
+              interval={0}
               tick={{ fontSize: 10 }}
             />
             <YAxis

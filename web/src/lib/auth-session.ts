@@ -384,7 +384,37 @@ export async function resolveAuthentication(): Promise<RefreshOutcome> {
   }
 
   auth.setBootstrapState('checking')
-  return refreshAuthentication()
+  const outcome = await refreshAuthentication()
+  if (outcome.kind === 'anonymous') {
+    const devBundle = await devAutoLogin()
+    if (devBundle) {
+      applyAuthBundle(devBundle, false)
+      useAuthStore.getState().auth.setBootstrapState('complete')
+      return { kind: 'authenticated', bundle: devBundle }
+    }
+  }
+  return outcome
+}
+
+/**
+ * Local-development convenience: sign in as root without credentials.
+ *
+ * Only wired in dev builds (`import.meta.env.DEV`) and only succeeds when the
+ * backend was started with DEV_AUTO_LOGIN=true and the request originates from
+ * loopback; the endpoint answers 404 otherwise. Returns null on any failure so
+ * callers fall through to the normal anonymous flow.
+ */
+async function devAutoLogin(): Promise<AuthBundle | null> {
+  if (!import.meta.env.DEV) {
+    return null
+  }
+  try {
+    const response = await authClient.post('/api/user/dev-login')
+    const data = isRecord(response.data) ? response.data : undefined
+    return isAuthBundle(data?.data) ? data.data : null
+  } catch {
+    return null
+  }
 }
 
 /**

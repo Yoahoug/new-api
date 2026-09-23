@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -48,6 +49,36 @@ func GetPasswordEncryptionKey(c *gin.Context) {
 		"kid":        keyID,
 		"public_key": publicKey,
 	})
+}
+
+// DevAutoLogin issues a root-user session without credentials, for local
+// development only. It is active only when DEV_AUTO_LOGIN=true, and refuses
+// any TCP peer that is not loopback. The peer address is used instead of
+// ClientIP so spoofed X-Forwarded-For headers cannot pass the gate. Requests
+// from non-loopback peers get 404 to avoid revealing the endpoint.
+func DevAutoLogin(c *gin.Context) {
+	if !common.DevAutoLoginEnabled {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "Not Found"})
+		return
+	}
+	peerHost, _, err := net.SplitHostPort(c.Request.RemoteAddr)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "Not Found"})
+		return
+	}
+	peerIP := net.ParseIP(peerHost)
+	if peerIP == nil || !peerIP.IsLoopback() {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "Not Found"})
+		return
+	}
+	rootUser := model.GetRootUser()
+	if rootUser == nil || rootUser.Id <= 0 || rootUser.Status != common.UserStatusEnabled {
+		common.SysLog("DEV_AUTO_LOGIN enabled but no enabled root user exists")
+		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "dev auto login unavailable: no root user"})
+		return
+	}
+	c.Set("login_method", "dev")
+	setupLoginAtAuthVersion(rootUser, rootUser.AuthVersion, c)
 }
 
 func Login(c *gin.Context) {

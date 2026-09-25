@@ -93,20 +93,36 @@ describe('calculateOfficialCost with injected table', () => {
     expect(result.unmatchedModels).toEqual([])
   })
 
-  it('still falls back to vendor id when no label is configured', () => {
+  it('falls back to the built-in vendor map, then the raw vendor id', () => {
     const result = calculateOfficialCost(
       [
         {
-          model_name: 'kimi-k2',
+          model_name: 'kimi-k3',
           prompt_tokens: 1_000_000,
           completion_tokens: 0,
           cache_tokens: 0,
         },
       ],
       buildOfficialPriceTable([
-        { model: 'kimi-k2', vendor: 'moonshot', input: 4, output: 16 },
+        // moonshot 已在内置映射中,无 label 时回退到内置 'Kimi'
+        { model: 'kimi-k3', vendor: 'moonshot', input: 20, output: 100 },
       ])
     )
-    expect(result.vendors[0].label).toBe('moonshot')
+    expect(result.vendors[0].label).toBe('Kimi')
+
+    const fallback = calculateOfficialCost(
+      [
+        {
+          model_name: 'some-model',
+          prompt_tokens: 1_000_000,
+          completion_tokens: 0,
+          cache_tokens: 0,
+        },
+      ],
+      buildOfficialPriceTable([
+        { model: 'some-model', vendor: 'unknown-vendor', input: 4, output: 16 },
+      ])
+    )
+    expect(fallback.vendors[0].label).toBe('unknown-vendor')
   })
 })

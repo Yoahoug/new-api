@@ -39,7 +39,11 @@ export interface OfficialModelPrice {
 // 空闲时段为高峰半价,这里按保守的高峰价估算)
 // deepseek-v4-flash 与 deepseek-flash 同价(V4.1-Flash 承接旧 V4-Flash 请求;
 // V4-Pro 自 2026-09-14 起也路由到 V4.1-Flash 并按 Flash 价计费)
-// 智谱 GLM: https://docs.bigmodel.cn/cn/guide/start/pricing
+// 智谱 GLM: https://docs.bigmodel.cn/cn/guide/start/pricing (GLM-5.3-Flash 标准价,
+// 限时五折 0.4/0.115/1.4 不取)
+// Kimi: https://platform.kimi.com (缓存写入价未纳入估算)
+// 小米 MiMo: https://mimo.mi.com/docs/zh-CN/price/pay-as-you-go (2026-09-21 核对)
+// OpenAI GPT-6 Luna: $0.10/$0.50 每 1M,按 7.2 汇率折算
 export const OFFICIAL_MODEL_PRICES: Record<string, OfficialModelPrice> = {
   'deepseek-v4.1-flash': { vendor: 'deepseek', input: 2, cachedInput: 0.04, output: 8 },
   'deepseek-v4-flash': { vendor: 'deepseek', input: 2, cachedInput: 0.04, output: 8 },
@@ -48,11 +52,18 @@ export const OFFICIAL_MODEL_PRICES: Record<string, OfficialModelPrice> = {
   'glm-5.3': { vendor: 'zhipu', input: 8, cachedInput: 2, output: 28 },
   'glm-5.3-flash': { vendor: 'zhipu', input: 0.8, cachedInput: 0.23, output: 2.8 },
   'glm-5.2': { vendor: 'zhipu', input: 8, cachedInput: 2, output: 28 },
+  'kimi-k3': { vendor: 'moonshot', input: 20, cachedInput: 2, output: 100 },
+  'mimo-v2.6-pro': { vendor: 'xiaomi', input: 3, cachedInput: 0.025, output: 6 },
+  'mimo-v2.6-flash': { vendor: 'xiaomi', input: 1, cachedInput: 0.02, output: 2 },
+  'gpt-6-luna': { vendor: 'openai', input: 0.72, output: 3.6 },
 }
 
 export const VENDOR_LABEL_KEYS: Record<string, string> = {
   deepseek: 'DeepSeek',
   zhipu: 'Zhipu GLM',
+  moonshot: 'Kimi',
+  xiaomi: 'Xiaomi MiMo',
+  openai: 'OpenAI',
 }
 
 /** /api/official_prices 返回的牌价配置项(管理员在后端维护) */

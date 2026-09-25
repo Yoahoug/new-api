@@ -248,7 +248,7 @@ export function TodayStatCards() {
             />
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className='divide-border/60 grid grid-cols-2 divide-x border-t sm:grid-cols-3 lg:grid-cols-5'>
+            <div className='divide-border/60 grid grid-cols-2 divide-x border-t sm:grid-cols-3'>
               {officialCost.vendors.map((v) => (
                 <div key={v.vendor} className='min-w-0 px-2.5 py-1.5 sm:px-5 sm:py-3'>
                   <div className='text-muted-foreground truncate text-[11px] leading-4 font-medium tracking-wide uppercase sm:text-xs sm:tracking-wider'>
@@ -260,13 +260,13 @@ export function TodayStatCards() {
                   >
                     {formatOfficialCNY(v.totalCNY)}
                   </div>
-                  <div className='text-muted-foreground/60 mt-0.5 truncate text-[11px]'>
+                  <div className='text-muted-foreground/60 mt-0.5 line-clamp-2 text-[11px] leading-4'>
                     {v.models.join(', ')}
                   </div>
                 </div>
               ))}
               {officialCost.unmatchedModels.length > 0 && (
-                <div className='text-muted-foreground/60 col-span-2 px-2.5 py-1.5 text-[11px] sm:col-span-3 sm:px-5 lg:col-span-5'>
+                <div className='text-muted-foreground/60 col-span-2 px-2.5 py-1.5 text-[11px] sm:col-span-3 sm:px-5'>
                   {t('No list price')}: {officialCost.unmatchedModels.join(', ')}
                 </div>
               )}

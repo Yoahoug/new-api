@@ -40,6 +40,7 @@ import {
 import userEvent from '@testing-library/user-event'
 import { createInstance } from 'i18next'
 import { I18nextProvider } from 'react-i18next'
+import { useState } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -65,7 +66,23 @@ await i18n.init({
   initAsync: false,
 })
 
+// useUsersColumns 内部的今日消耗查询依赖 TanStack Query,需包 Provider
 function QuotaTable(props: { remaining: number; used: number }) {
+  const [queryClient] = useState(() => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    clients.push(client)
+    return client
+  })
+  return (
+    <QueryClientProvider client={queryClient}>
+      <QuotaTableColumns remaining={props.remaining} used={props.used} />
+    </QueryClientProvider>
+  )
+}
+
+function QuotaTableColumns(props: { remaining: number; used: number }) {
   const columns = useUsersColumns().filter((column) =>
     ['quota', 'used_quota'].includes(
       column.id ?? ('accessorKey' in column ? String(column.accessorKey) : '')

@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useQuery } from '@tanstack/react-query'
 
 import { getTodayUsage } from '@/features/dashboard/api'
+import { useOfficialPrices } from '@/features/dashboard/hooks/use-official-prices'
 import { calculateOfficialCost } from '@/features/dashboard/lib'
 import { requireServerSuccess } from '@/lib/server-error-message'
 
@@ -31,6 +32,7 @@ export interface TodayUsageByUser {
 
 /** 用户列表"今日消耗"列数据:quota 与官方 API 估价按 username 聚合 */
 export function useTodayQuotaByUser() {
+  const officialPrices = useOfficialPrices()
   const query = useQuery({
     queryKey: ['users', 'today-usage'],
     queryFn: async () => requireServerSuccess(await getTodayUsage()),
@@ -49,7 +51,7 @@ export function useTodayQuotaByUser() {
       }
       const officialCNY = new Map<string, number>()
       for (const [username, rows] of rowsByUser) {
-        officialCNY.set(username, calculateOfficialCost(rows).totalCNY)
+        officialCNY.set(username, calculateOfficialCost(rows, officialPrices).totalCNY)
       }
       return { quota, officialCNY }
     },

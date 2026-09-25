@@ -346,6 +346,11 @@ func SetApiRouter(router *gin.Engine) {
 		dataRoute.GET("/flow", middleware.AdminAuth(), controller.GetAllFlowQuotaDates)
 		dataRoute.GET("/flow/self", middleware.UserAuth(), controller.GetUserFlowQuotaDates)
 
+		// 官方牌价配置:登录用户读取,管理员维护(仅供前端成本估算展示)
+		officialPriceRoute := apiRouter.Group("/official_prices")
+		officialPriceRoute.GET("", middleware.UserAuth(), controller.GetOfficialPrices)
+		officialPriceRoute.PUT("", middleware.AdminAuth(), controller.UpdateOfficialPrices)
+
 		logRoute.Use(middleware.CORS(), middleware.CriticalRateLimit())
 		{
 			logRoute.GET("/token", middleware.TokenAuthReadOnly(), controller.GetLogByKey)

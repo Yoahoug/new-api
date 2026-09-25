@@ -46,6 +46,10 @@
   同 username 多行要累加不能覆盖)
 - 官方价目表在前端 `web/src/features/dashboard/lib/official-prices.ts`
   (CNY,含 cachedInput 价),调价不用动后端
+- 官方牌价表支持两种来源:后端 `setting/official_price_setting`(管理员经
+  `GET/PUT /api/official_prices` 维护,存 options 表,键 `official_price_setting.items`)
+  + 前端内置缺省表 `web/src/features/dashboard/lib/official-prices.ts`(DeepSeek/GLM),
+  服务器条目按模型名覆盖或新增,未配置回退内置表(CNY,含 cachedInput 价)
 - TanStack devtools `initialIsOpen={false}`(web/src/routes/__root.tsx)
 
 ## i18n 修改注意事项(必须)
@@ -62,11 +66,13 @@ enc = raw.replace(b'"footer.newapi.projectAttributionSuffix"',
 ## 本地开发环境
 
 - 前端 dev server:`cd web && bun run dev`(端口 5173/3001,API 代理到本地后端)
-- 本地后端:
+- 本地后端(`DEV_AUTO_LOGIN=true` 开启免登录调试,见 controller/user.go `DevAutoLogin`:
+  仅 loopback 可访问 `POST /api/user/dev-login`,签发 root session;前端仅 dev 构建
+  (`import.meta.env.DEV`,即 `bun run dev`)会自动调用,生产 dist 不带此逻辑):
   ```bash
   go build -o /tmp/newapi-local .
   SQL_DSN='postgresql://root:123456@localhost:15432/new-api?sslmode=disable' \
-  REDIS_CONN_STRING='redis://:123456@localhost:16379' PORT=3000 \
+  REDIS_CONN_STRING='redis://:123456@localhost:16379' PORT=3000 DEV_AUTO_LOGIN=true \
   nohup /tmp/newapi-local --log-dir /tmp/newapi-local-logs > /tmp/newapi-local.log 2>&1 &
   ```
 - 本地 Docker(Docker Desktop/OrbStack):postgres 15 宿主 15432(root/123456,卷
@@ -147,6 +153,7 @@ docker logs new-api --since 2m    # 无 error/panic
 
 - 数据/数据库与官方版本兼容:所有 schema 变更走 GORM 迁移,三数据库兼容
 - 个人数据只放概览页,数据看板管理员看全站、用户看自己
-- 官方牌价估算放前端(便于合并上游、调价不重编译);后端只提供通用聚合端点
+- 官方牌价估算展示与计费无关(仅个人成本参考);后端只提供牌价配置的读写接口,
+  不参与任何扣费路径
 - `/api/data/token-usage` 端点已删除(被 /api/data/today 取代)
 - 生产部署从官方镜像 `calciumion/new-api:latest` 切换为 fork 本地构建

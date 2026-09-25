@@ -23,6 +23,7 @@ import type {
   QuotaDataItem,
   UptimeGroupResult,
 } from './types'
+import type { OfficialPriceConfigItem } from './lib/official-prices'
 
 // ============================================================================
 // Dashboard APIs
@@ -79,6 +80,16 @@ export async function getTodayUsage() {
 // Daily per-user × per-model usage for the last `days` days (default 7,
 // server-capped at 90), including token details for official cost estimates.
 // Admin may pass username=all for site-wide rows.
+// Get the admin-maintained official list-price configuration. Entries not
+// configured fall back to the built-in table in the frontend.
+export async function getOfficialPrices() {
+  const res = await api.get<{
+    success: boolean
+    data: OfficialPriceConfigItem[]
+  }>('/api/official_prices')
+  return res.data
+}
+
 export async function getDailyUsage(params?: { days?: number; username?: string }) {
   const res = await api.get<{
     success: boolean

@@ -35,9 +35,11 @@ import {
 } from '@/components/ui/chart'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { getDailyUsage } from '@/features/dashboard/api'
+import { useOfficialPrices } from '@/features/dashboard/hooks/use-official-prices'
 import {
   calculateOfficialCost,
   formatOfficialCNY,
+  type OfficialModelPrice,
 } from '@/features/dashboard/lib'
 import { requireServerSuccess } from '@/lib/server-error-message'
 import { useAuthStore } from '@/stores/auth-store'
@@ -63,11 +65,12 @@ function buildDailySeries(
     completion_tokens: number
     cache_tokens: number
   }>,
-  days: number
+  days: number,
+  prices: Record<string, OfficialModelPrice>
 ): DailyCostPoint[] {
   const byDay = new Map<string, number>()
   for (const row of rows) {
-    const cost = calculateOfficialCost([row]).totalCNY
+    const cost = calculateOfficialCost([row], prices).totalCNY
     if (cost > 0) {
       byDay.set(row.day, (byDay.get(row.day) ?? 0) + cost)
     }
@@ -113,7 +116,11 @@ export function OfficialCostCard() {
       ),
     [query.data, user?.username]
   )
-  const series = useMemo(() => buildDailySeries(myRows, 7), [myRows])
+  const officialPrices = useOfficialPrices()
+  const series = useMemo(
+    () => buildDailySeries(myRows, 7, officialPrices),
+    [myRows, officialPrices]
+  )
   const totalCNY = series.reduce((sum, point) => sum + point.cost, 0)
       const todayCost = series.at(-1)?.cost ?? 0
       let todayCostDisplay = '--'

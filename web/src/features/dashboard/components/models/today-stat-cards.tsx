@@ -30,11 +30,10 @@ import {
   getTodayUsage,
   type TodayUsageItem,
 } from '@/features/dashboard/api'
+import { useOfficialPrices } from '@/features/dashboard/hooks/use-official-prices'
 import {
   calculateOfficialCost,
   formatOfficialCNY,
-  VENDOR_LABEL_KEYS,
-  type OfficialVendor,
 } from '@/features/dashboard/lib'
 import { getCurrencyDisplay } from '@/lib/currency'
 import { computeTimeRange } from '@/lib/time'
@@ -118,9 +117,10 @@ export function TodayStatCards() {
   const stats = useMemo(() => aggregateTodayStats(items ?? []), [items])
 
   // 官方牌价估算与今日用量同源同口径(今天 0 点起)
+  const officialPrices = useOfficialPrices()
   const officialCost = useMemo(
-    () => calculateOfficialCost(items ?? []),
-    [items]
+    () => calculateOfficialCost(items ?? [], officialPrices),
+    [items, officialPrices]
   )
   const hasCost = officialCost.vendors.length > 0
 
@@ -252,7 +252,7 @@ export function TodayStatCards() {
               {officialCost.vendors.map((v) => (
                 <div key={v.vendor} className='min-w-0 px-2.5 py-1.5 sm:px-5 sm:py-3'>
                   <div className='text-muted-foreground truncate text-[11px] leading-4 font-medium tracking-wide uppercase sm:text-xs sm:tracking-wider'>
-                    {t(VENDOR_LABEL_KEYS[v.vendor as OfficialVendor] ?? v.vendor)}
+                    {v.label}
                   </div>
                   <div
                     className='text-foreground mt-0.5 max-w-full truncate font-mono text-sm leading-tight font-bold tabular-nums sm:text-base'

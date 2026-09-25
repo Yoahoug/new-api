@@ -17,15 +17,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 // 官方 API 牌价估算用价目表(元/百万 token,人民币国内牌价)。
-// 仅为个人成本参考,不代表实际扣费;价格来源为各官方定价页,手动维护。
-export type OfficialVendor = 'deepseek' | 'zhipu'
+// 仅为个人成本参考,不代表实际扣费;价格来源为各官方定价页。
+// 牌价可由管理员通过 /api/official_prices 在后端维护
+// (setting/official_price_setting),未配置或条目缺失时回退到内置表。
+export type OfficialVendor = string
 
 export interface OfficialModelPrice {
   /** 所属厂商,用于分组计价 */
   vendor: OfficialVendor
+  /** 厂商显示名,缺省回退到 VENDOR_LABEL_KEYS */
+  vendorLabel?: string
   /** 输入单价(缓存未命中),CNY / 百万 token */
   input: number
-  /** 输入单价(缓存命中),CNY / 百万 token;缺省按 input 8 折 */
+  /** 输入单价(缓存命中),CNY / 百万 token;缺省按 input 计 */
   cachedInput?: number
   /** 输出单价,CNY / 百万 token */
   output: number
@@ -35,30 +39,72 @@ export interface OfficialModelPrice {
 // 空闲时段为高峰半价,这里按保守的高峰价估算)
 // deepseek-v4-flash 与 deepseek-flash 同价(V4.1-Flash 承接旧 V4-Flash 请求;
 // V4-Pro 自 2026-09-14 起也路由到 V4.1-Flash 并按 Flash 价计费)
+// 智谱 GLM: https://docs.bigmodel.cn/cn/guide/start/pricing
 export const OFFICIAL_MODEL_PRICES: Record<string, OfficialModelPrice> = {
   'deepseek-v4.1-flash': { vendor: 'deepseek', input: 2, cachedInput: 0.04, output: 8 },
   'deepseek-v4-flash': { vendor: 'deepseek', input: 2, cachedInput: 0.04, output: 8 },
   'deepseek-flash': { vendor: 'deepseek', input: 2, cachedInput: 0.04, output: 8 },
   'deepseek-v4-pro': { vendor: 'deepseek', input: 2, cachedInput: 0.04, output: 8 },
-  // 智谱 GLM: https://docs.bigmodel.cn/cn/guide/start/pricing
   'glm-5.3': { vendor: 'zhipu', input: 8, cachedInput: 2, output: 28 },
   'glm-5.3-flash': { vendor: 'zhipu', input: 0.8, cachedInput: 0.23, output: 2.8 },
   'glm-5.2': { vendor: 'zhipu', input: 8, cachedInput: 2, output: 28 },
 }
 
-export const VENDOR_LABEL_KEYS: Record<OfficialVendor, string> = {
+export const VENDOR_LABEL_KEYS: Record<string, string> = {
   deepseek: 'DeepSeek',
   zhipu: 'Zhipu GLM',
 }
 
+/** /api/official_prices 返回的牌价配置项(管理员在后端维护) */
+export interface OfficialPriceConfigItem {
+  model: string
+  vendor: string
+  vendor_label?: string
+  input: number
+  cached_input?: number
+  output: number
+}
+
+/**
+ * 合并内置缺省表与服务器配置:服务器条目按模型名(忽略大小写)覆盖或新增,
+ * 未配置的模型继续使用内置价,便于逐个补充模型
+ */
+export function buildOfficialPriceTable(
+  items?: OfficialPriceConfigItem[] | null
+): Record<string, OfficialModelPrice> {
+  const table: Record<string, OfficialModelPrice> = {
+    ...OFFICIAL_MODEL_PRICES,
+  }
+  if (!Array.isArray(items)) {
+    return table
+  }
+  for (const item of items) {
+    if (!item?.model) continue
+    table[item.model.toLowerCase()] = {
+      vendor: item.vendor,
+      vendorLabel: item.vendor_label || undefined,
+      input: Number(item.input) || 0,
+      cachedInput:
+        item.cached_input === undefined || item.cached_input === null
+          ? undefined
+          : Number(item.cached_input),
+      output: Number(item.output) || 0,
+    }
+  }
+  return table
+}
+
 export function getOfficialModelPrice(
-  modelName: string
+  modelName: string,
+  prices: Record<string, OfficialModelPrice> = OFFICIAL_MODEL_PRICES
 ): OfficialModelPrice | null {
-  return OFFICIAL_MODEL_PRICES[modelName.toLowerCase()] ?? null
+  return prices[modelName.toLowerCase()] ?? null
 }
 
 export interface VendorOfficialCost {
   vendor: OfficialVendor
+  /** 厂商显示名(配置 label → 内置映射 → 厂商标识) */
+  label: string
   /** 该厂商的官方牌价估算,人民币元 */
   totalCNY: number
   /** 该厂商下已匹配的模型名 */
@@ -80,7 +126,8 @@ export function calculateOfficialCost(
     prompt_tokens: number
     completion_tokens: number
     cache_tokens: number
-  }>
+  }>,
+  prices: Record<string, OfficialModelPrice> = OFFICIAL_MODEL_PRICES
 ): OfficialCostResult {
   const vendorCosts = new Map<OfficialVendor, VendorOfficialCost>()
   const unmatchedModels: string[] = []
@@ -91,7 +138,7 @@ export function calculateOfficialCost(
     const completionTokens = Number(item.completion_tokens) || 0
     if (promptTokens + completionTokens <= 0) continue
 
-    const price = getOfficialModelPrice(item.model_name)
+    const price = getOfficialModelPrice(item.model_name, prices)
     if (!price) {
       if (!unmatchedModels.includes(item.model_name)) {
         unmatchedModels.push(item.model_name)
@@ -101,7 +148,15 @@ export function calculateOfficialCost(
 
     let entry = vendorCosts.get(price.vendor)
     if (!entry) {
-      entry = { vendor: price.vendor, totalCNY: 0, models: [] }
+      entry = {
+        vendor: price.vendor,
+        label:
+          price.vendorLabel ??
+          VENDOR_LABEL_KEYS[price.vendor] ??
+          price.vendor,
+        totalCNY: 0,
+        models: [],
+      }
       vendorCosts.set(price.vendor, entry)
     }
     if (!entry.models.includes(item.model_name)) {

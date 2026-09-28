@@ -16,11 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { ShieldOff } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+
+import { EmptyState } from '@/components/empty-state'
+import { LoadingState } from '@/components/loading-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -29,8 +33,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+} from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { handleServerError } from '@/lib/handle-server-error'
 import { resolveLocalizedText } from '@/lib/localized-text'
 
@@ -39,9 +51,57 @@ import type { RequestGuardConfigField, RequestGuardItem } from '../types'
 import { PluginIcon } from './plugin-icon'
 
 /**
- * Renders one declared config field. Only the scalar types get direct inputs;
- * array and object fields are edited as JSON, which keeps the form honest
- * about what the plugin will actually receive.
+ * JSON editor for array/object config fields. The raw text lives in local
+ * state so every keystroke sticks while the JSON is still incomplete; only a
+ * parseable value reaches the draft. Remounting (reset) re-reads the saved
+ * value.
+ */
+function JsonConfigField(props: {
+  id: string
+  label: string
+  name: string
+  value: unknown
+  onChange: (value: unknown) => void
+}) {
+  const [text, setText] = useState(() =>
+    props.value === undefined || props.value === null
+      ? ''
+      : JSON.stringify(props.value, null, 2)
+  )
+  return (
+    <Field className='sm:col-span-2'>
+      <FieldLabel htmlFor={props.id}>{props.label}</FieldLabel>
+      <FieldDescription className='font-mono text-xs'>
+        {props.name}
+      </FieldDescription>
+      <Textarea
+        id={props.id}
+        className='max-h-64 min-h-16 font-mono text-xs'
+        spellCheck={false}
+        value={text}
+        onChange={(event) => {
+          const raw = event.target.value
+          setText(raw)
+          if (raw.trim() === '') {
+            props.onChange(undefined)
+            return
+          }
+          try {
+            props.onChange(JSON.parse(raw))
+          } catch {
+            /* Keep the last valid draft until the JSON parses again. */
+          }
+        }}
+      />
+    </Field>
+  )
+}
+
+
+/**
+ * Renders one declared config field. Scalar types get direct inputs; array
+ * and object fields are edited as JSON across the full form width, which
+ * keeps the form honest about what the plugin will actually receive.
  */
 function ConfigFieldInput(props: {
   field: RequestGuardConfigField
@@ -50,25 +110,38 @@ function ConfigFieldInput(props: {
   onChange: (value: unknown) => void
 }) {
   const { t } = useTranslation()
+  const inputId = useId()
   const { field, value, onChange } = props
-  const label = resolveLocalizedText(field.description, props.language) || field.name
+  const label =
+    resolveLocalizedText(field.description, props.language) || field.name
+  const nameHint = (
+    <FieldDescription className='font-mono text-xs'>
+      {field.name}
+    </FieldDescription>
+  )
   switch (field.type) {
     case 'boolean':
       return (
-        <label className='flex items-center justify-between gap-3 text-sm'>
-          <span>{label}</span>
+        <Field orientation='horizontal'>
+          <FieldContent>
+            <FieldLabel>{label}</FieldLabel>
+            {nameHint}
+          </FieldContent>
           <Switch
             checked={value === true}
             onCheckedChange={(checked) => onChange(checked)}
+            aria-label={label}
           />
-        </label>
+        </Field>
       )
     case 'integer':
     case 'number':
       return (
-        <label className='block space-y-1 text-sm'>
-          <span>{label}</span>
+        <Field>
+          <FieldLabel htmlFor={inputId}>{label}</FieldLabel>
+          {nameHint}
           <Input
+            id={inputId}
             type='number'
             step={field.type === 'integer' ? 1 : 'any'}
             value={typeof value === 'number' ? String(value) : ''}
@@ -79,54 +152,54 @@ function ConfigFieldInput(props: {
               }
             }}
           />
-        </label>
+        </Field>
       )
     case 'enum': {
       const options = field.enumValues ?? []
       return (
-        <label className='block space-y-1 text-sm'>
-          <span>{label}</span>
-          <select
-            className='border-input bg-background flex h-9 w-full rounded-md px-3 text-sm'
+        <Field>
+          <FieldLabel htmlFor={inputId}>{label}</FieldLabel>
+          {nameHint}
+          <NativeSelect
+            id={inputId}
             value={typeof value === 'string' ? value : ''}
             onChange={(event) => onChange(event.target.value)}
           >
-            <option value=''>{t('Not set')}</option>
+            <NativeSelectOption value=''>{t('Not set')}</NativeSelectOption>
             {options.map((option) => (
-              <option key={option} value={option}>
+              <NativeSelectOption key={option} value={option}>
                 {option}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
-        </label>
+          </NativeSelect>
+        </Field>
       )
     }
+    case 'array':
+    case 'object':
+      return (
+        <JsonConfigField
+          id={inputId}
+          label={label}
+          name={field.name}
+          value={value}
+          onChange={onChange}
+        />
+      )
     default:
       return (
-        <label className='block space-y-1 text-sm'>
-          <span>{label}</span>
-          <textarea
-            className='border-input bg-background min-h-20 w-full rounded-md px-3 py-2 font-mono text-xs'
-            spellCheck={false}
+        <Field>
+          <FieldLabel htmlFor={inputId}>{label}</FieldLabel>
+          {nameHint}
+          <Input
+            id={inputId}
+            type='text'
             value={
-              value === undefined || value === null
-                ? ''
-                : JSON.stringify(value, null, 2)
+              value === undefined || value === null ? '' : String(value)
             }
-            onChange={(event) => {
-              const raw = event.target.value
-              if (raw.trim() === '') {
-                onChange(undefined)
-                return
-              }
-              try {
-                onChange(JSON.parse(raw))
-              } catch {
-                /* Keep the previous value until the JSON parses again. */
-              }
-            }}
+            onChange={(event) => onChange(event.target.value)}
           />
-        </label>
+        </Field>
       )
   }
 }
@@ -138,6 +211,9 @@ function GuardCard(props: { guard: RequestGuardItem }) {
   const [draft, setDraft] = useState<Record<string, unknown>>(
     () => guard.config ?? {}
   )
+  // Bump to remount JSON editors on reset so their local raw text
+  // re-initializes from the saved configuration.
+  const [resetTick, setResetTick] = useState(0)
   const saveMutation = useMutation({
     mutationFn: (config: Record<string, unknown>) =>
       updateRequestGuardConfig(guard.key, config),
@@ -202,31 +278,37 @@ function GuardCard(props: { guard: RequestGuardItem }) {
             : ''}
         </p>
         {fields.length > 0 && (
-          <div className='space-y-3 border-t pt-3'>
-            {fields.map((field) => (
-              <ConfigFieldInput
-                key={field.name}
-                field={field}
-                language={i18n.language}
-                value={draft[field.name]}
-                onChange={(value) =>
-                  setDraft((previous) => {
-                    const next = { ...previous }
-                    if (value === undefined) {
-                      delete next[field.name]
-                    } else {
-                      next[field.name] = value
-                    }
-                    return next
-                  })
-                }
-              />
-            ))}
+          <div className='max-w-3xl space-y-4 border-t pt-4'>
+            <p className='text-sm font-medium'>{t('Configuration')}</p>
+            <div className='grid gap-x-6 gap-y-4 sm:grid-cols-2'>
+              {fields.map((field) => (
+                <ConfigFieldInput
+                  key={`${field.name}-${resetTick}`}
+                  field={field}
+                  language={i18n.language}
+                  value={draft[field.name]}
+                  onChange={(value) =>
+                    setDraft((previous) => {
+                      const next = { ...previous }
+                      if (value === undefined) {
+                        delete next[field.name]
+                      } else {
+                        next[field.name] = value
+                      }
+                      return next
+                    })
+                  }
+                />
+              ))}
+            </div>
             <div className='flex justify-end gap-2'>
               <Button
                 variant='outline'
                 size='sm'
-                onClick={() => setDraft(guard.config ?? {})}
+                onClick={() => {
+                  setDraft(guard.config ?? {})
+                  setResetTick((tick) => tick + 1)
+                }}
                 disabled={saveMutation.isPending}
               >
                 {t('Reset')}
@@ -253,6 +335,20 @@ export function RequestGuardsPanel() {
     queryFn: listRequestGuards,
   })
   const guards = guardsQuery.data ?? []
+  let body: React.ReactNode
+  if (guardsQuery.isLoading) {
+    body = <LoadingState message={t('Loading...')} />
+  } else if (guards.length === 0) {
+    body = (
+      <EmptyState
+        icon={ShieldOff}
+        title={t('No request guard plugins are installed.')}
+        bordered
+      />
+    )
+  } else {
+    body = guards.map((guard) => <GuardCard key={guard.key} guard={guard} />)
+  }
   return (
     <div className='space-y-3'>
       <p className='text-muted-foreground text-sm'>
@@ -260,15 +356,7 @@ export function RequestGuardsPanel() {
           'Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.'
         )}
       </p>
-      {guardsQuery.isLoading ? (
-        <p className='text-muted-foreground text-sm'>{t('Loading...')}</p>
-      ) : guards.length === 0 ? (
-        <p className='text-muted-foreground text-sm'>
-          {t('No request guard plugins are installed.')}
-        </p>
-      ) : (
-        guards.map((guard) => <GuardCard key={guard.key} guard={guard} />)
-      )}
+      {body}
     </div>
   )
 }

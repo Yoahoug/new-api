@@ -1,12 +1,17 @@
-# Task plugin API v1
+# Plugin API v1
 
-Task plugins are single-file synchronous ECMAScript modules. The plugin contract
+Plugins are single-file synchronous ECMAScript modules in one of three kinds.
+A **task plugin** drives one upstream model: it builds vendor requests, parses
+responses, and reports usage facts. A **request guard** decides whether a relay
+request may run at all, before a channel is selected. A **request interceptor**
+rewrites the outbound request after channel selection — body and headers — to
+repair vendor quirks without touching the built-in adaptors. The plugin contract
 is currently unreleased; [`v1.schema.json`](./v1.schema.json) and
 [`v1.d.ts`](./v1.d.ts) are the authoritative v1 contract.
 
 ## Contract and lifecycle
 
-Every plugin exports `meta`, `buildSubmitRequest`, `parseSubmitResponse`, and
+Every task plugin exports `meta`, `buildSubmitRequest`, `parseSubmitResponse`, and
 `parseTaskResult`. A `per_task` plugin also exports `buildQueryRequest`; a
 `batch` plugin exports `buildBatchQueryRequest` and `parseBatchResult`.
 `meta.author.name` is required and `meta.author.url`, when present, must be an
@@ -91,6 +96,81 @@ prefixed with plugin key/version; module-initialization output may have an empty
 identity during initial upload validation. Do not print credentials, headers,
 request bodies, upstream payloads, or private URLs from plugin code; free-form
 console output cannot be redacted by the host.
+
+## Request guards
+
+A plugin that declares `meta.guard` is a request guard instead of a task
+plugin. A guard answers one question — may this request run? — and never
+declares models, routes, protocols, usage, or outbound hosts; the host rejects
+a manifest that claims both surfaces. Guards declare `request-guard@1` in
+`requiredCapabilities`, so an older host refuses the manifest instead of
+loading permission hooks it would silently ignore.
+
+The host runs the guard chain on every relay request after authentication and
+before distribution. Each claiming guard's exported decision hook receives a
+`GuardRequest` (request id, method, path, client IP, user, token, groups, the
+requested model, a bounded header map without credential headers, a parsed JSON
+body up to 256 KiB, and the administrator-supplied `config`) and returns
+`{allow, status?, code?, message?, headers?, metadata?}`. Denials are
+delivered to the client in the ordinary error envelope; an allowed request
+continues through rate limiting and distribution untouched. Hooks run highest
+`priority` first; an `exclusive` guard's allow ends the chain. A hook error
+fails closed unless the guard declares `failOpen`; execution is bounded by
+`timeoutMs` (default 2 s, clamped to 0.1–5 s), deliberately shorter than the
+task-plugin budget because a guard gates every request.
+
+The optional `complete` hook receives exactly one terminal event per request —
+`denied`, `succeeded`, `failed`, or `canceled` — asynchronously and with a
+context detached from the client, so a disconnected request still notifies and
+a slow guard never delays a response. Credential headers never enter a guard,
+and a decision may not set framing, content-negotiation, or routing response
+headers; the host owns the error envelope's shape.
+
+The chain ships `model-policy` as a built-in guard. It is inert until an
+administrator configures it: it restricts which models each group may call,
+denies listed user ids, and declares its fields through `configFields` so the
+management UI can render a form. Guard configuration lives under the
+`TaskPluginGuardConfigs` option, validated against the declared fields, and is
+editable with `PUT /api/plugin/task/guards/:key/config`; `GET
+/api/plugin/task/guards` lists installed guards in decision order. A guard is
+never bindable to a channel and never appears in channel plugin bindings.
+
+## Request interceptors
+
+A plugin that declares `meta.interceptor` joins the outbound rewrite chain. The
+host runs it after the channel is selected, the model is mapped, conversion and
+param override have produced the final JSON, and the upstream headers are
+assembled — the last look before the request leaves the gateway. This is where
+vendor-specific repairs live: injecting a session header a provider requires,
+moving image blocks a strict validator rejects, or reshaping one field for one
+endpoint, all without forking an adaptor.
+
+The `intercept` hook receives the outbound view (upstream base URL and mapped
+model, retry index, channel identity, assembled headers, the parsed JSON body up
+to 4 MiB, and the administrator config) and returns `{body?, headers?,
+clearHeaders?, metadata?}`. Returning no body keeps the host's bytes; a body
+must be a JSON object and replaces the payload wholesale. Header changes may not
+touch host-owned fields — `authorization`, `cookie`, `content-length`,
+`transfer-encoding`, and similar — so a plugin can add vendor headers but can
+never re-aim authentication. Hooks run highest `priority` first and compose:
+each hook sees the previous hook's rewrite. A hook error fails the attempt
+(closed) unless `failOpen: true`; channel tests never run interceptors.
+
+The optional `complete` hook receives the same one-shot terminal event as a
+guard. Configuration follows the guard model: `configFields` declare what an
+administrator may set, values live under the `TaskPluginInterceptorConfigs`
+option, and `GET /api/plugin/task/interceptors` plus
+`PUT /api/plugin/task/interceptors/:key/config` manage them. Interceptors are
+never bindable to a channel.
+
+The gateway registers no built-in interceptors. Two reference implementations
+ported from real production use live under `examples/interceptors/`:
+`opencode-session-header` (derive a stable session id from recognized inbound
+headers and inject it for session-affine upstreams) and `tool-image-relay`
+(relocate `image_url` blocks out of tool messages into a following user message
+for upstreams that reject them there). They are not installed by default; a root
+administrator can upload either one via the plugin creation API when an upstream
+needs it.
 
 ## Fixtures and dry runs
 

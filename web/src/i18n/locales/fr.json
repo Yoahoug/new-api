@@ -6796,6 +6796,21 @@
     "Upstream base": "Base amont",
     "Custom build number": "Numéro de build",
     "Estimated at official list prices (CNY)": "Estimé aux tarifs officiels (CNY)",
-    "Last 7 days total": "Total des 7 derniers jours"
+    "Last 7 days total": "Total des 7 derniers jours",
+    "Request guard": "Garde de requêtes",
+    "Request guards": "Gardes de requêtes",
+    "Guards relay requests before channel selection": "Contrôle les requêtes avant la sélection du canal",
+    "This plugin guards relay requests": "Ce plugin contrôle les requêtes",
+    "Priority {{priority}}": "Priorité {{priority}}",
+    "Exclusive": "Exclusif",
+    "Fail open": "Échec ouvert",
+    "All methods": "Toutes les méthodes",
+    "All paths": "Tous les chemins",
+    "All groups": "Tous les groupes",
+    "Timeout {{ms}} ms": "Délai {{ms}} ms",
+    "Guard configuration saved": "Configuration de la garde enregistrée",
+    "Save configuration": "Enregistrer la configuration",
+    "No request guard plugins are installed.": "Aucun plugin de garde de requêtes n'est installé.",
+    "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "Les gardes s'exécutent dans l'ordre indiqué avant la sélection du canal. Une requête refusée n'atteint jamais un fournisseur et ne réserve jamais de quota."
   }
 }

@@ -382,6 +382,8 @@ type RoutingGeneration struct {
 	protocolIndex        map[string][]ProtocolBinding
 	plugins              []*LoadedPlugin
 	routes               []RouteBinding
+	guards               []*guardEntry
+	interceptors         []*interceptorEntry
 	runtime              http.Handler
 	retainCurrent        map[string]struct{}
 }
@@ -936,6 +938,22 @@ func buildRoutingGenerationFromPlugins(effective map[string]*LoadedPlugin, numbe
 		plugin := effective[key]
 		generation.byKey[key] = plugin
 		generation.plugins = append(generation.plugins, plugin)
+		if plugin.Meta.Guard != nil {
+			generation.guards = append(generation.guards, &guardEntry{
+				plugin:   plugin,
+				meta:     *plugin.Meta.Guard,
+				timeout:  guardTimeout(*plugin.Meta.Guard),
+				complete: plugin.Meta.Guard.Complete != "",
+			})
+		}
+		if plugin.Meta.Interceptor != nil {
+			generation.interceptors = append(generation.interceptors, &interceptorEntry{
+				plugin:   plugin,
+				meta:     *plugin.Meta.Interceptor,
+				timeout:  interceptorTimeout(*plugin.Meta.Interceptor),
+				complete: plugin.Meta.Interceptor.Complete != "",
+			})
+		}
 		for _, model := range plugin.Meta.Models {
 			generation.modelPlugins[model] = append(generation.modelPlugins[model], plugin)
 			if _, exists := generation.byModel[model]; !exists {
@@ -1005,6 +1023,23 @@ func buildRoutingGenerationFromPlugins(effective map[string]*LoadedPlugin, numbe
 			}
 		}
 	}
+	// The guard chain is ordered once per generation, so a request always sees
+	// the same decision order and a published generation never re-sorts under
+	// a request that is already running.
+	sort.SliceStable(generation.guards, func(i, j int) bool {
+		left, right := generation.guards[i], generation.guards[j]
+		if left.meta.Priority != right.meta.Priority {
+			return left.meta.Priority > right.meta.Priority
+		}
+		return left.plugin.Meta.Key < right.plugin.Meta.Key
+	})
+	sort.SliceStable(generation.interceptors, func(i, j int) bool {
+		left, right := generation.interceptors[i], generation.interceptors[j]
+		if left.meta.Priority != right.meta.Priority {
+			return left.meta.Priority > right.meta.Priority
+		}
+		return left.plugin.Meta.Key < right.plugin.Meta.Key
+	})
 	return generation, nil
 }
 

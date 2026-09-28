@@ -60,6 +60,10 @@ func InitOptionMap() {
 	common.OptionMap[setting.TaskPluginMarketplaceSourcesKey] = setting.TaskPluginMarketplaceSources2JsonString()
 	common.OptionMap[setting.TaskPluginDisabledFactoryKeysKey] = "[]"
 	jsplugin.DefaultRegistry.SetDisabledFactoryKeys(nil)
+	common.OptionMap[jsplugin.TaskPluginGuardConfigsKey] = "{}"
+	_ = jsplugin.SetGuardConfigsOption("{}")
+	common.OptionMap[jsplugin.TaskPluginInterceptorConfigsKey] = "{}"
+	_ = jsplugin.SetInterceptorConfigsOption("{}")
 	common.OptionMap["DataExportEnabled"] = strconv.FormatBool(common.DataExportEnabled)
 	common.OptionMap["ChannelDisableThreshold"] = strconv.FormatFloat(common.ChannelDisableThreshold, 'f', -1, 64)
 	common.OptionMap["EmailDomainRestrictionEnabled"] = strconv.FormatBool(common.EmailDomainRestrictionEnabled)
@@ -463,6 +467,16 @@ func updateOptionMap(key string, value string) (err error) {
 	}
 	if key == setting.TaskPluginDisabledFactoryKeysKey {
 		jsplugin.DefaultRegistry.SetDisabledFactoryKeys(setting.ParseTaskPluginDisabledFactoryKeys(value))
+	}
+	if key == jsplugin.TaskPluginGuardConfigsKey {
+		if errParse := jsplugin.SetGuardConfigsOption(value); errParse != nil {
+			return errParse
+		}
+	}
+	if key == jsplugin.TaskPluginInterceptorConfigsKey {
+		if errParse := jsplugin.SetInterceptorConfigsOption(value); errParse != nil {
+			return errParse
+		}
 	}
 	switch key {
 	case "EmailDomainWhitelist":

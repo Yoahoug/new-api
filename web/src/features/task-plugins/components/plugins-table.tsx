@@ -163,6 +163,11 @@ export function PluginsTable(props: PluginsTableProps) {
                 </div>
                 <PluginWebsiteLink website={row.original.meta.website} />
               </div>
+              {row.original.meta.guard && (
+                <Badge variant='outline' title={t('Guards relay requests before channel selection')}>
+                  {t('Request guard')}
+                </Badge>
+              )}
             </div>
           )
         },

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/fs"
+	"strings"
 
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
 )
@@ -12,13 +13,16 @@ import (
 //go:embed tasks
 var taskPlugins embed.FS
 
+//go:embed guards
+var guardPlugins embed.FS
+
 func init() {
 	entries, err := fs.ReadDir(taskPlugins, "tasks")
 	if err != nil {
 		panic(fmt.Sprintf("read embedded task plugins: %v", err))
 	}
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if (!entry.IsDir() && entry.Name() != ".DS_Store") || strings.HasPrefix(entry.Name(), ".") {
 			continue
 		}
 		key := entry.Name()
@@ -35,11 +39,44 @@ func init() {
 			}
 		}
 	}
+	registerEmbeddedKind(guardPlugins, "guards", GuardSource, "request guard")
+}
+
+// registerEmbeddedKind compiles and registers one directory of factory
+// plugins. Registration panics on failure: a broken built-in must stop the
+// build, not surface as a runtime routing error.
+func registerEmbeddedKind(embedded embed.FS, dir string, sourceOf func(key string) (string, error), kind string) {
+	entries, err := fs.ReadDir(embedded, dir)
+	if err != nil {
+		panic(fmt.Sprintf("read embedded %ss: %v", kind, err))
+	}
+	for _, entry := range entries {
+		if (!entry.IsDir() && entry.Name() != ".DS_Store") || strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+		key := entry.Name()
+		source, sourceErr := sourceOf(key)
+		if sourceErr != nil {
+			panic(fmt.Sprintf("read embedded %s %s: %v", kind, key, sourceErr))
+		}
+		if _, registerErr := jsplugin.DefaultRegistry.RegisterFactory(source, jsplugin.Options{Key: key}); registerErr != nil {
+			panic(fmt.Sprintf("register embedded %s %s: %v", kind, key, registerErr))
+		}
+	}
 }
 
 // Source returns the embedded factory source for a task plugin key.
 func Source(key string) (string, error) {
-	source, err := taskPlugins.ReadFile("tasks/" + key + "/plugin.js")
+	return readFactoryPlugin(taskPlugins, "tasks", key)
+}
+
+// GuardSource returns the embedded factory source for a request guard key.
+func GuardSource(key string) (string, error) {
+	return readFactoryPlugin(guardPlugins, "guards", key)
+}
+
+func readFactoryPlugin(embedded embed.FS, dir, key string) (string, error) {
+	source, err := embedded.ReadFile(dir + "/" + key + "/plugin.js")
 	if err != nil {
 		return "", err
 	}

@@ -6796,6 +6796,21 @@
     "Upstream base": "Основа",
     "Custom build number": "Номер сборки",
     "Estimated at official list prices (CNY)": "Оценка по официальным ценам (CNY)",
-    "Last 7 days total": "Всего за 7 дней"
+    "Last 7 days total": "Всего за 7 дней",
+    "Request guard": "Контролёр запросов",
+    "Request guards": "Контролёры запросов",
+    "Guards relay requests before channel selection": "Проверяет запросы до выбора канала",
+    "This plugin guards relay requests": "Этот плагин проверяет запросы",
+    "Priority {{priority}}": "Приоритет {{priority}}",
+    "Exclusive": "Исключительный",
+    "Fail open": "Пропуск при сбое",
+    "All methods": "Все методы",
+    "All paths": "Все пути",
+    "All groups": "Все группы",
+    "Timeout {{ms}} ms": "Тайм-аут {{ms}} мс",
+    "Guard configuration saved": "Конфигурация контролёра сохранена",
+    "Save configuration": "Сохранить конфигурацию",
+    "No request guard plugins are installed.": "Плагины-контролёры запросов не установлены.",
+    "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "Контролёры выполняются в указанном порядке до выбора канала. Отклонённый запрос никогда не достигает провайдера и не резервирует квоту."
   }
 }

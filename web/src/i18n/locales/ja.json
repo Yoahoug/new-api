@@ -6796,6 +6796,21 @@
     "Upstream base": "上流ベース",
     "Custom build number": "カスタム番号",
     "Estimated at official list prices (CNY)": "公式定価での見積もり (人民元)",
-    "Last 7 days total": "過去7日間の合計"
+    "Last 7 days total": "過去7日間の合計",
+    "Request guard": "リクエストガード",
+    "Request guards": "リクエストガード",
+    "Guards relay requests before channel selection": "チャネル選択前にリクエストを検査します",
+    "This plugin guards relay requests": "このプラグインはリクエストを検査します",
+    "Priority {{priority}}": "優先度 {{priority}}",
+    "Exclusive": "排他",
+    "Fail open": "フェイルオープン",
+    "All methods": "すべてのメソッド",
+    "All paths": "すべてのパス",
+    "All groups": "すべてのグループ",
+    "Timeout {{ms}} ms": "タイムアウト {{ms}} ミリ秒",
+    "Guard configuration saved": "ガード設定を保存しました",
+    "Save configuration": "設定を保存",
+    "No request guard plugins are installed.": "リクエストガードプラグインはインストールされていません。",
+    "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "リクエストガードは一覧の順序でチャネル選択前に実行されます。拒否されたリクエストは上流に到達せず、クォータも消費しません。"
   }
 }

@@ -13,6 +13,7 @@ import (
 
 	common2 "github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
+	pluginruntime "github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -310,6 +311,103 @@ func applyHeaderOverrideToRequest(req *http.Request, headerOverride map[string]s
 	}
 }
 
+// ApplyUpstreamBodyMetadata(req, requestBody)
+// headers := req.Header
+// err = a.SetupRequestHeader(c, &headers, info)
+// headerOverride, err := processHeaderOverride(info, c)
+// applyHeaderOverrideToRequest(req, headerOverride)
+// applyPluginRequestInterceptors(c, req, info)   // <-- after overrides, before send
+// resp, err := doRequest(c, req, info)
+//
+// The body is only rewritten when an installed interceptor actually supplies a
+// replacement, so the zero-plugin path keeps the caller's reader untouched.
+func applyPluginRequestInterceptors(c *gin.Context, req *http.Request, info *common.RelayInfo) error {
+	generation := pluginruntime.DefaultRegistry.Generation()
+	if generation == nil || !generation.HasOutboundInterceptors() || info == nil || info.IsChannelTest {
+		return nil
+	}
+	request, _, err := buildInterceptorRequest(c, req, info)
+	if err != nil {
+		// A body we cannot parse for interception is still a request the
+		// caller built deliberately; interceptors never see it and never
+		// block it. The failure is logged, not surfaced.
+		logger.LogWarn(c.Request.Context(), "plugin_interceptor event=skip reason=%q err=%q", "unreadable_body", err.Error())
+		return nil
+	}
+	outcome := generation.RunOutboundInterceptors(c.Request.Context(), request)
+	if outcome.Failed {
+		return types.NewError(outcome.Error, types.ErrorCodeDoRequestFailed, types.ErrOptionWithSkipRetry())
+	}
+	for name, value := range outcome.Headers {
+		req.Header.Set(name, value)
+	}
+	for _, name := range outcome.ClearHeaders {
+		req.Header.Del(name)
+	}
+	if outcome.Body != nil && len(outcome.Body) > 0 {
+		replacement, createErr := common2.CreateBodyStorage(outcome.Body)
+		if createErr != nil {
+			return types.NewError(fmt.Errorf("interceptor body replacement failed: %w", createErr), types.ErrorCodeDoRequestFailed, types.ErrOptionWithSkipRetry())
+		}
+		req.Body = io.NopCloser(replacement)
+		req.ContentLength = int64(len(outcome.Body))
+		req.GetBody = replacement.NewReader
+	}
+	if outcome.Key != "" && common2.DebugEnabled {
+		logger.LogDebug(c, "plugin_interceptor event=applied plugin=%q body_rewritten=%t", outcome.Key, outcome.Body != nil)
+	}
+	return nil
+}
+
+// buildInterceptorRequest snapshots the outbound request for the interceptor
+// chain: the assembled headers, the upstream URL, and the JSON body.
+func buildInterceptorRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (pluginruntime.InterceptRequest, pluginruntime.OutboundTransform, error) {
+	request := pluginruntime.InterceptRequest{
+		RequestID:       c.GetString(common2.RequestIdKey),
+		Method:          req.Method,
+		Path:            c.Request.URL.Path,
+		UpstreamBaseURL: info.ChannelMeta.ChannelBaseUrl,
+		UpstreamModel:   info.GetUpstreamModelName(),
+		OriginModel:     info.OriginModelName,
+		Stream:          info.IsStream,
+		RetryIndex:      info.RetryIndex,
+		ChannelID:       info.ChannelMeta.ChannelId,
+		ChannelType:     info.ChannelMeta.ChannelType,
+		UserID:          info.UserId,
+		UsingGroup:      info.UsingGroup,
+	}
+	if len(req.Header) > 0 {
+		request.Headers = make(map[string]string, min(len(req.Header), pluginruntime.MaxInterceptorHeaderEntries))
+		count := 0
+		for name := range req.Header {
+			if count >= pluginruntime.MaxInterceptorHeaderEntries {
+				break
+			}
+			request.Headers[strings.ToLower(name)] = strings.Join(req.Header.Values(name), ", ")
+			count++
+		}
+	}
+	storage, err := common2.GetBodyStorage(c)
+	if err != nil {
+		return request, pluginruntime.OutboundTransform{}, err
+	}
+	if storage.Size() > pluginruntime.MaxInterceptorBodyBytes {
+		return request, pluginruntime.OutboundTransform{}, fmt.Errorf("body of %d bytes exceeds interceptor limit of %d", storage.Size(), pluginruntime.MaxInterceptorBodyBytes)
+	}
+	bodyBytes, err := storage.Bytes()
+	if err != nil {
+		return request, pluginruntime.OutboundTransform{}, err
+	}
+	if len(bodyBytes) > 0 {
+		var body any
+		if err = common2.Unmarshal(bodyBytes, &body); err != nil {
+			return request, pluginruntime.OutboundTransform{}, err
+		}
+		request.Body = body
+	}
+	return request, pluginruntime.OutboundTransform{}, nil
+}
+
 func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody io.Reader) (*http.Response, error) {
 	fullRequestURL, err := a.GetRequestURL(info)
 	if err != nil {
@@ -333,6 +431,9 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 		return nil, err
 	}
 	applyHeaderOverrideToRequest(req, headerOverride)
+	if err = applyPluginRequestInterceptors(c, req, info); err != nil {
+		return nil, err
+	}
 	resp, err := doRequest(c, req, info)
 	if err != nil {
 		return nil, fmt.Errorf("do request failed: %w", err)

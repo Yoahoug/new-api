@@ -23,7 +23,7 @@ const (
 
 // HasCapability describes host APIs independently of a plugin's mutable globals.
 func HasCapability(name string) bool {
-	return name == CapabilityJSONClone || name == CapabilitySubmitSSEDelta
+	return name == CapabilityJSONClone || name == CapabilitySubmitSSEDelta || name == GuardCapability || name == InterceptorCapability
 }
 
 // JSONState owns a request-local JSON result. Appended strings stay in Go and

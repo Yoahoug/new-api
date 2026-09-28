@@ -6796,6 +6796,21 @@
     "Upstream base": "上游基準",
     "Custom build number": "二改序號",
     "Estimated at official list prices (CNY)": "按官方牌價估算 (人民幣)",
-    "Last 7 days total": "近 7 天合計"
+    "Last 7 days total": "近 7 天合計",
+    "Request guard": "請求守衛",
+    "Request guards": "請求守衛",
+    "Guards relay requests before channel selection": "在渠道選擇前對轉發請求進行把關",
+    "This plugin guards relay requests": "該外掛對轉發請求進行權限把關",
+    "Priority {{priority}}": "優先級 {{priority}}",
+    "Exclusive": "獨佔",
+    "Fail open": "故障放行",
+    "All methods": "所有請求方法",
+    "All paths": "所有路徑",
+    "All groups": "所有分組",
+    "Timeout {{ms}} ms": "逾時 {{ms}} 毫秒",
+    "Guard configuration saved": "守衛配置已儲存",
+    "Save configuration": "儲存配置",
+    "No request guard plugins are installed.": "尚未安裝請求守衛外掛。",
+    "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "請求守衛按列表順序在選擇渠道之前執行。被拒絕的請求不會到達上游，也不會預扣額度。"
   }
 }

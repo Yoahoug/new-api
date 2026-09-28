@@ -22,6 +22,7 @@ import { createServerError } from '@/lib/server-error-message'
 import type {
   ApiResponse,
   MarketplaceSource,
+  RequestGuardItem,
   TaskPluginDetail,
   TaskPluginListItem,
   TaskPluginRecord,
@@ -69,6 +70,25 @@ function requireSuccess<T>(response: ApiResponse<T>): T {
 export async function listTaskPlugins() {
   const response =
     await api.get<ApiResponse<TaskPluginListItem[]>>('/api/plugin/task')
+  return requireSuccess(response.data)
+}
+
+export async function listRequestGuards() {
+  const response = await api.get<ApiResponse<RequestGuardItem[]>>(
+    '/api/plugin/task/guards'
+  )
+  return requireSuccess(response.data)
+}
+
+export async function updateRequestGuardConfig(
+  key: string,
+  config: Record<string, unknown> | null
+) {
+  const response = await api.put<ApiResponse<Record<string, unknown>>>(
+    `/api/plugin/task/guards/${encodeURIComponent(key)}/config`,
+    { config },
+    mutationConfig
+  )
   return requireSuccess(response.data)
 }
 

@@ -107,6 +107,13 @@ type Meta struct {
 	UsageExamples        []UsageExample              `json:"usageExamples,omitempty"`
 	UsageProfiles        []UsageProfile              `json:"usageProfiles,omitempty"`
 	Auth                 AuthMeta                    `json:"auth"`
+	// Guard turns this plugin into a request guard instead of a task plugin.
+	// Exactly one of Guard, Interceptor, or the task-plugin surface may be
+	// declared.
+	Guard *GuardMeta `json:"guard,omitempty"`
+	// Interceptor turns this plugin into an outbound request rewriter. It is
+	// mutually exclusive with Guard and the task-plugin surface.
+	Interceptor *InterceptorMeta `json:"interceptor,omitempty"`
 }
 
 // Upstream kinds a plugin driver can address. Every driver speaks to its
@@ -321,6 +328,12 @@ func CompilePlugin(source string, options Options) (*LoadedPlugin, error) {
 	}
 	engine.key = meta.Key
 	engine.version = meta.Version
+	if meta.Guard != nil {
+		return &LoadedPlugin{Meta: meta, Engine: engine}, verifyGuardExports(engine, meta)
+	}
+	if meta.Interceptor != nil {
+		return &LoadedPlugin{Meta: meta, Engine: engine}, verifyInterceptorExports(engine, meta)
+	}
 	requiredHooks := []string{"buildSubmitRequest", "parseSubmitResponse", "parseTaskResult"}
 	if slices.Contains(meta.SubmitResponseTypes, "sse") {
 		if slices.Contains(meta.RequiredCapabilities, CapabilitySubmitSSEDelta) {
@@ -883,6 +896,31 @@ func cloneMeta(meta Meta) Meta {
 		profile.Schema = CloneUsageSchema(profile.Schema)
 		profile.Examples = CloneUsageExamples(profile.Examples)
 	}
+	if meta.Guard != nil {
+		guard := *meta.Guard
+		guard.Methods = slices.Clone(guard.Methods)
+		guard.Paths = slices.Clone(guard.Paths)
+		guard.ExcludePaths = slices.Clone(guard.ExcludePaths)
+		guard.Models = slices.Clone(guard.Models)
+		guard.Groups = slices.Clone(guard.Groups)
+		guard.ConfigFields = append([]GuardConfigField(nil), guard.ConfigFields...)
+		for index := range guard.ConfigFields {
+			guard.ConfigFields[index].EnumValues = slices.Clone(guard.ConfigFields[index].EnumValues)
+		}
+		meta.Guard = &guard
+	}
+	if meta.Interceptor != nil {
+		interceptor := *meta.Interceptor
+		interceptor.Methods = slices.Clone(interceptor.Methods)
+		interceptor.Paths = slices.Clone(interceptor.Paths)
+		interceptor.Models = slices.Clone(interceptor.Models)
+		interceptor.Groups = slices.Clone(interceptor.Groups)
+		interceptor.ConfigFields = append([]GuardConfigField(nil), interceptor.ConfigFields...)
+		for index := range interceptor.ConfigFields {
+			interceptor.ConfigFields[index].EnumValues = slices.Clone(interceptor.ConfigFields[index].EnumValues)
+		}
+		meta.Interceptor = &interceptor
+	}
 	return meta
 }
 
@@ -1003,7 +1041,7 @@ func decodeMeta(value any) (Meta, error) {
 	}
 	for field := range object {
 		switch field {
-		case "requiredCapabilities", "submitResponseTypes", "sortPriority", "website", "apiVersion", "key", "name", "icon", "description", "version", "author", "baseUrl", "channelTypes", "channelType", "compatibleChannelTypes", "models", "fetchMode", "allowedHosts", "upstreams", "routes", "protocols", "usageSchema", "usageExamples", "usageProfiles", "auth", "endpoints", "submitPaths", "actions":
+		case "requiredCapabilities", "submitResponseTypes", "sortPriority", "website", "apiVersion", "key", "name", "icon", "description", "version", "author", "baseUrl", "channelTypes", "channelType", "compatibleChannelTypes", "models", "fetchMode", "allowedHosts", "upstreams", "routes", "protocols", "usageSchema", "usageExamples", "usageProfiles", "auth", "guard", "interceptor", "endpoints", "submitPaths", "actions":
 		default:
 			return Meta{}, &UnknownMetaFieldError{Field: field}
 		}
@@ -1128,6 +1166,18 @@ func decodeMeta(value any) (Meta, error) {
 	}
 	if usageProfiles, exists := object["usageProfiles"]; exists {
 		meta.UsageProfiles, err = decodeUsageProfiles(usageProfiles)
+		if err != nil {
+			return Meta{}, err
+		}
+	}
+	if rawGuard, exists := object["guard"]; exists {
+		meta.Guard, err = decodeGuardMeta(rawGuard)
+		if err != nil {
+			return Meta{}, err
+		}
+	}
+	if rawInterceptor, exists := object["interceptor"]; exists {
+		meta.Interceptor, err = decodeInterceptorMeta(rawInterceptor)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -1280,6 +1330,12 @@ func normalizeV1Meta(meta *Meta) error {
 	}
 	if !pluginVersionPattern.MatchString(meta.Version) {
 		return fmt.Errorf("plugin meta version must be semver")
+	}
+	if meta.Guard != nil {
+		return normalizeGuardPluginMeta(meta)
+	}
+	if meta.Interceptor != nil {
+		return normalizeInterceptorPluginMeta(meta)
 	}
 	if meta.FetchMode != "per_task" && meta.FetchMode != "batch" {
 		return fmt.Errorf("plugin meta fetchMode must be per_task or batch")

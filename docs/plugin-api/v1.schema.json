@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/QuantumNous/new-api/docs/plugin-api/v1.schema.json",
-  "title": "new-api Task Plugin v1 manifest",
+  "title": "new-api Plugin v1 manifest",
   "type": "object",
   "additionalProperties": false,
-  "required": ["apiVersion", "key", "name", "version", "author", "models", "fetchMode"],
+  "required": ["apiVersion", "key", "name", "version", "author"],
   "properties": {
     "sortPriority": {"type": "integer", "minimum": -2147483648, "maximum": 2147483647, "default": 0},
     "website": {"oneOf": [{"const": ""}, {"type": "string", "format": "uri", "pattern": "^[Hh][Tt][Tt][Pp][Ss]://[^/@?#\\s]+(?:[/?#]|$)"}], "description": "Absolute HTTPS URL with a valid ASCII hostname (use punycode for internationalized domains) and no credentials; validated by the host."},
@@ -20,11 +20,76 @@
       {"type": "object", "additionalProperties": false, "required": ["name"], "properties": {"name": {"enum": ["openai_video", "openai_image"]}, "models": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}}}
     ]}},
     "submitResponseTypes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["json", "sse"]}},
-    "requiredCapabilities": {"type": "array", "uniqueItems": true, "items": {"enum": ["json-clone@1", "submit-sse-delta@1"]}},
-    "routes": {"type": "array", "items": {"$ref": "#/$defs/route"}}, "usageSchema": {"type": "object", "additionalProperties": {"$ref": "#/$defs/usageField"}}, "usageExamples": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["label", "facts"], "properties": {"label": {"type": "string"}, "facts": {"type": "object"}}}}, "usageProfiles": {"type": "array", "items": {"$ref": "#/$defs/usageProfile"}}, "auth": {}
+    "requiredCapabilities": {"type": "array", "uniqueItems": true, "items": {"enum": ["json-clone@1", "submit-sse-delta@1", "request-guard@1", "request-interceptor@1"]}},
+    "routes": {"type": "array", "items": {"$ref": "#/$defs/route"}}, "usageSchema": {"type": "object", "additionalProperties": {"$ref": "#/$defs/usageField"}}, "usageExamples": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["label", "facts"], "properties": {"label": {"type": "string"}, "facts": {"type": "object"}}}}, "usageProfiles": {"type": "array", "items": {"$ref": "#/$defs/usageProfile"}}, "auth": {},
+    "guard": {"$ref": "#/$defs/guardMeta", "description": "Declares this plugin a request guard. A guard decides whether a relay request may run and may not declare the task-plugin surface."},
+    "interceptor": {"$ref": "#/$defs/interceptorMeta", "description": "Declares this plugin an outbound request interceptor. Mutually exclusive with guard and the task-plugin surface."}
   },
-  "allOf": [{"if": {"required": ["requiredCapabilities"], "properties": {"requiredCapabilities": {"contains": {"const": "submit-sse-delta@1"}}}}, "then": {"required": ["submitResponseTypes"], "properties": {"submitResponseTypes": {"contains": {"const": "sse"}}}}}],
+  "anyOf": [
+    {
+      "required": ["guard"],
+      "not": {"required": ["interceptor"]}
+    },
+    {
+      "required": ["interceptor"],
+      "not": {"anyOf": [{"required": ["guard"]}, {"required": ["models"]}, {"required": ["fetchMode"]}, {"required": ["routes"]}, {"required": ["protocols"]}, {"required": ["channelTypes"]}, {"required": ["usageSchema"]}, {"required": ["usageProfiles"]}, {"required": ["baseUrl"]}, {"required": ["allowedHosts"]}, {"required": ["upstreams"]}, {"required": ["submitResponseTypes"]}]}
+    },
+    {
+      "required": ["guard"],
+      "not": {"anyOf": [{"required": ["models"]}, {"required": ["fetchMode"]}, {"required": ["routes"]}, {"required": ["protocols"]}, {"required": ["channelTypes"]}, {"required": ["usageSchema"]}, {"required": ["usageProfiles"]}, {"required": ["baseUrl"]}, {"required": ["allowedHosts"]}, {"required": ["upstreams"]}, {"required": ["submitResponseTypes"]}]}
+    },
+    {"required": ["models", "fetchMode"], "not": {"required": ["guard"]}}
+  ],
+  "allOf": [{"if": {"required": ["requiredCapabilities"], "properties": {"requiredCapabilities": {"contains": {"const": "submit-sse-delta@1"}}}}, "then": {"required": ["submitResponseTypes"], "properties": {"submitResponseTypes": {"contains": {"const": "sse"}}}}}, {"if": {"required": ["guard"]}, "then": {"required": ["requiredCapabilities"], "properties": {"requiredCapabilities": {"contains": {"const": "request-guard@1"}}}}}, {"if": {"required": ["guard"]}, "then": {"properties": {"guard": {"required": ["authorize"]}}}}],
   "$defs": {
+    "guardMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authorize"],
+      "properties": {
+        "priority": {"type": "integer", "minimum": -2147483648, "maximum": 2147483647, "default": 0, "description": "Higher runs earlier; ties use ascending plugin key."},
+        "exclusive": {"type": "boolean", "default": false, "description": "This guard becomes the sole authority for the requests it claims: its allow ends the chain."},
+        "failOpen": {"type": "boolean", "default": false, "description": "Allow the request when the decision hook errors instead of failing closed."},
+        "timeoutMs": {"type": "integer", "minimum": 0, "description": "Decision-hook execution budget, clamped to 100-5000 ms. Default 2000."},
+        "methods": {"type": "array", "uniqueItems": true, "items": {"enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]}},
+        "paths": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^/", "maxLength": 191}, "description": "Path prefixes this guard claims. Empty means every path."},
+        "excludePaths": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^/", "maxLength": 191}},
+        "models": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}, "description": "Requested models this guard claims, matched case-insensitively. A guard declaring models does not see a request whose model could not be resolved."},
+        "groups": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}, "description": "Using groups this guard claims. Empty means every group."},
+        "authorize": {"type": "string", "minLength": 1, "description": "Name of the exported decision hook."},
+        "complete": {"type": "string", "description": "Name of the optional exported terminal-notification hook. Omit to disable."},
+        "configFields": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/guardConfigField"}}
+      }
+    },
+    "interceptorMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["intercept"],
+      "properties": {
+        "priority": {"type": "integer", "minimum": -2147483648, "maximum": 2147483647, "default": 0, "description": "Higher runs earlier; ties use ascending plugin key."},
+        "failOpen": {"type": "boolean", "default": false, "description": "Skip the interceptor when the hook errors instead of failing the attempt."},
+        "timeoutMs": {"type": "integer", "minimum": 0, "description": "Hook execution budget, clamped to 100-5000 ms. Default 2000."},
+        "methods": {"type": "array", "uniqueItems": true, "items": {"enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]}},
+        "paths": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^/", "maxLength": 191}, "description": "Request path prefixes this interceptor claims. Empty means every path."},
+        "models": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}, "description": "Upstream (mapped) model names this interceptor claims."},
+        "groups": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}, "description": "Using groups this interceptor claims. Empty means every group."},
+        "intercept": {"type": "string", "minLength": 1, "description": "Name of the exported rewrite hook."},
+        "complete": {"type": "string", "description": "Name of the optional exported terminal-notification hook. Omit to disable."},
+        "configFields": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/guardConfigField"}}
+      }
+    },
+    "guardConfigField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 64},
+        "type": {"enum": ["string", "number", "integer", "boolean", "enum", "array", "object"]},
+        "enumValues": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "description": {"$ref": "#/$defs/usageLabel"}
+      },
+      "description": "One administrator-supplied setting, so a management client can render a form without interpreting the manifest. A field of type enum must declare enumValues; other types must not."
+    },
     "jsonChange": {
       "type": "object", "additionalProperties": false, "required": ["op", "path", "value"],
       "properties": {

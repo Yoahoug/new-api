@@ -6796,6 +6796,21 @@
     "Upstream base": "Nền tảng gốc",
     "Custom build number": "Số bản dựng",
     "Estimated at official list prices (CNY)": "Ước tính theo giá niêm yết chính thức (CNY)",
-    "Last 7 days total": "Tổng 7 ngày gần nhất"
+    "Last 7 days total": "Tổng 7 ngày gần nhất",
+    "Request guard": "Bộ chặn yêu cầu",
+    "Request guards": "Bộ chặn yêu cầu",
+    "Guards relay requests before channel selection": "Kiểm tra yêu cầu trước khi chọn kênh",
+    "This plugin guards relay requests": "Plugin này kiểm tra các yêu cầu",
+    "Priority {{priority}}": "Ưu tiên {{priority}}",
+    "Exclusive": "Độc quyền",
+    "Fail open": "Mở khi lỗi",
+    "All methods": "Mọi phương thức",
+    "All paths": "Mọi đường dẫn",
+    "All groups": "Mọi nhóm",
+    "Timeout {{ms}} ms": "Hết hạn {{ms}} ms",
+    "Guard configuration saved": "Đã lưu cấu hình bộ chặn",
+    "Save configuration": "Lưu cấu hình",
+    "No request guard plugins are installed.": "Chưa cài đặt plugin bộ chặn yêu cầu nào.",
+    "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "Các bộ chặn chạy theo thứ tự liệt kê trước khi chọn kênh. Yêu cầu bị từ chối không bao giờ tới nhà cung cấp và không đặt trước hạn mức."
   }
 }

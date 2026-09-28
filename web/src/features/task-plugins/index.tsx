@@ -43,6 +43,7 @@ import {
 import { MarketplacePanel } from './components/marketplace-panel'
 import { PluginDetailSheet } from './components/plugin-detail-sheet'
 import { PluginsTable } from './components/plugins-table'
+import { RequestGuardsPanel } from './components/request-guards-panel'
 import { UploadDialog } from './components/upload-dialog'
 import type { TaskPluginListItem } from './types'
 
@@ -142,6 +143,7 @@ export function TaskPlugins() {
           >
             <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
               <TabsTrigger value='installed'>{t('Installed')}</TabsTrigger>
+              <TabsTrigger value='guards'>{t('Request guards')}</TabsTrigger>
               <TabsTrigger value='marketplace'>{t('Marketplace')}</TabsTrigger>
             </TabsList>
             <TabsContent value='installed' className='min-h-0 flex-1'>
@@ -149,6 +151,9 @@ export function TaskPlugins() {
                 onDetails={setDetail}
                 onUpload={(key) => openUpload(key)}
               />
+            </TabsContent>
+            <TabsContent value='guards' className='min-h-0 flex-1 overflow-y-auto'>
+              <RequestGuardsPanel />
             </TabsContent>
             <TabsContent value='marketplace' className='min-h-0 flex-1'>
               <MarketplacePanel />

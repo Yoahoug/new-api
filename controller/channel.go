@@ -564,6 +564,9 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 		if !ok {
 			return fmt.Errorf("task plugin %q is not registered", pluginKey)
 		}
+		if err := plugin.Meta.TaskPluginBindableError(); err != nil {
+			return err
+		}
 		if channel.BaseURL == nil || strings.TrimSpace(*channel.BaseURL) == "" {
 			// The plugin default is persisted onto the channel instead of being
 			// resolved per request, so the destination host stays an auditable
@@ -604,6 +607,9 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 			plugin, ok := jsplugin.DefaultRegistry.Get(key)
 			if !ok {
 				return fmt.Errorf("task plugin %q is not registered", key)
+			}
+			if err := plugin.Meta.TaskPluginBindableError(); err != nil {
+				return err
 			}
 			if !plugin.Meta.SupportsUpstream(jsplugin.UpstreamKindNewAPI) {
 				return fmt.Errorf("task plugin %q does not support a New API upstream and cannot be bound to a New API channel", key)

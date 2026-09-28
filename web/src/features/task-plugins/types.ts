@@ -66,6 +66,45 @@ export type TaskPluginMeta = {
     schema: BillingUsageSchema
     examples?: BillingUsageExample[]
   }[]
+  /** Present only on request guards; a guard is not a task plugin. */
+  guard?: RequestGuardMeta | null
+}
+
+/** One administrator-supplied setting declared by a request guard's `configFields`. */
+export type RequestGuardConfigField = {
+  name: string
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'enum' | 'array' | 'object'
+  enumValues?: string[]
+  description?: Record<string, string>
+}
+
+/** The `meta.guard` block: how one plugin joins the request guard chain. */
+export type RequestGuardMeta = {
+  priority: number
+  exclusive?: boolean
+  failOpen?: boolean
+  timeoutMs?: number
+  methods?: string[]
+  paths?: string[]
+  excludePaths?: string[]
+  models?: string[]
+  groups?: string[]
+  authorize: string
+  complete?: string
+  configFields?: RequestGuardConfigField[]
+}
+
+/** One installed request guard as returned by GET /api/plugin/task/guards. */
+export type RequestGuardItem = {
+  key: string
+  name: string
+  version: string
+  icon?: string
+  hasIcon: boolean
+  description?: Record<string, string>
+  website?: string
+  guard: RequestGuardMeta
+  config: Record<string, unknown> | null
 }
 
 export type TaskPluginRecord = {

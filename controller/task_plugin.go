@@ -667,6 +667,11 @@ func GetTaskPluginOptions(c *gin.Context) {
 			if _, ok := jsplugin.DefaultRegistry.Get(meta.Key); !ok {
 				continue
 			}
+			// A request guard decides whether a request may run; it has no
+			// upstream task of its own and is never bound to a channel.
+			if meta.IsRequestGuard() {
+				continue
+			}
 			seen[meta.Key] = true
 			hasIcon := false
 			if layer == 0 {

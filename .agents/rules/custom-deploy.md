@@ -81,6 +81,15 @@ enc = raw.replace(b'"footer.newapi.projectAttributionSuffix"',
 - 测试账号(仅本地库):yoahoug / local-test-1234(管理员)、testuser / Test12345678
 - 注意:`go build` 必须在仓库根目录执行;`web/dist` 为空时后端可构建但页面为占位
 
+### 本地环境收尾(每次部署/验证结束后固定执行)
+
+线上部署完成后,本地验证环境必须全部停掉,不留后台开销:
+
+1. 停进程:`pkill -f newapi-local`、`pkill -f "bun run dev"`(确认 3000/3001/5173 无监听)
+2. 停容器:`docker stop newapi-local-postgres newapi-local-redis`(数据卷保留,下次调试直接 `docker start`)
+3. 关 Docker 守护进程:`osascript -e 'quit app "OrbStack"'`
+4. 若在真实库改过数据(如测试配置),先还原再停服
+
 ### 本地验证流程
 
 1. 前端:`cd web && bun run typecheck`(tsgo -b)、`bun run lint`

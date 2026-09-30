@@ -147,6 +147,33 @@ docker logs new-api --since 2m    # 无 error/panic
 `HTTP_PROXY=http://host.docker.internal:7890` 等(build 容器不走 daemon 代理),
 `extra_hosts: host.docker.internal:host-gateway`。
 
+### 切换窗口实测与最短停机流程(2026-09-30 实测)
+
+**默认 `compose up -d` 的窗口远大于"容器 die→start 的 2 秒"**:2026-09-30 13:12 切换时,
+旧容器 13:12:00 收到 SIGTERM → 应用先关闭监听、再等在途流排空
+(`SHUTDOWN_TIMEOUT_SECONDS` 默认 120s,被 Docker 10 秒 stop 超时 SIGKILL,容器约
+13:12:17 才退出),这十几秒里 docker-proxy 仍占着 3000 端口但无人应答,请求全部失败;
+新容器 13:12:19.5 启动、**13:12:21.9 才开始监听** → **用户可见中断 ≈ 22 秒**。
+证据:`logs/oneapi-20260928165500.log` 结尾 `received signal: terminated`(13:12:00)、
+`logs/oneapi-20260930131220.log` 的 `New API ... started`(13:12:22)、
+`docker inspect` 的 `StartedAt`(13:12:19.499)。
+
+**最短停机流程**(下限约 3~4 秒 = 容器重建约 1 秒 + 应用启动到监听 2.4 秒,后者不可
+压缩;**在途流会被立即切断**,若要给流留时间改用 `docker stop -t <秒>` 但窗口相应变长):
+
+```bash
+docker pull ghcr.io/yoahoug/new-api-custom:local        # 先拉,零中断
+cd /data/appdata/new-api
+docker rm -f new-api                                    # 不排空,立即释放端口
+docker compose -f docker-compose.yml -f docker-compose.override.yml \
+  -f docker-compose.deploy.yml up -d new-api
+sleep 4 && curl -s http://127.0.0.1:3000/api/status | grep -o '"version":"[^"]*"'
+```
+
+端口 3000 同一时刻只能被一个容器持有,新容器必须先拿到端口才能启动应用,因此"只切容器"
+做不到严格 0 中断;要 0 中断必须让一个常驻进程持有 3000(例如给宿主 openresty 加一个
+`listen 3000` 的转发 server 块,之后每次切换只 reload;或极小的转发容器)。
+
 ### 服务器环境坑(已修复,勿回退)
 
 - **UFW 默认网桥**:`ufw allow in on docker0 to any port 7890 proto tcp` 已加。

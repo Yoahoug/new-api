@@ -158,8 +158,11 @@ docker logs new-api --since 2m    # 无 error/panic
 `logs/oneapi-20260930131220.log` 的 `New API ... started`(13:12:22)、
 `docker inspect` 的 `StartedAt`(13:12:19.499)。
 
-**最短停机流程**(下限约 3~4 秒 = 容器重建约 1 秒 + 应用启动到监听 2.4 秒,后者不可
-压缩;**在途流会被立即切断**,若要给流留时间改用 `docker stop -t <秒>` 但窗口相应变长):
+**最短停机流程**(2026-10-02 实测:rc.40-custom.8 → rc.41-custom.1 切换窗口 **9.05 秒**,
+0.2 秒间隔探测 43/65 次失败;构成 = Docker 生命周期约 6 秒(`rm -f` 的 kill→die 约 2 秒、
+destroy→create 约 2 秒、create→start 约 2 秒)+ 应用启动到监听 2.4 秒(其中生产库迁移
+检查约 3 秒)。应用启动到监听不可压缩,本机 Docker 生命周期开销约 2~6 秒浮动;
+**在途流会被立即切断**,若要给流留时间改用 `docker stop -t <秒>` 但窗口相应变长):
 
 ```bash
 docker pull ghcr.io/yoahoug/new-api-custom:local        # 先拉,零中断

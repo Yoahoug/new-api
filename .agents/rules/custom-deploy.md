@@ -105,6 +105,10 @@ enc = raw.replace(b'"footer.newapi.projectAttributionSuffix"',
 - 代码:`/data/appdata/new-api-custom/`(fork clone,`git fetch origin custom && git reset --hard origin/custom` 同步;GitHub 需走代理 `git -c http.proxy=http://127.0.0.1:7890`)
 - 生产:`/data/appdata/new-api/`(compose 三件套:`docker-compose.yml` 上游原版 +
   `docker-compose.override.yml` 容器改名 + `docker-compose.deploy.yml` GHCR 镜像 override)
+- **docker compose 只允许在 `/data/appdata/new-api/` 用绝对路径 `-f` 执行**;
+  clone 目录 `/data/appdata/new-api-custom/` 里**不要**跑 compose(其历史上的本机构建
+  override `docker-compose.deploy.yml` 已于 2026-10-08 删除,见下方事故记录;
+  本地构建能力保留在生产目录的 `docker-compose.deploy.yml.bak-local-build`)
 - **镜像:`ghcr.io/yoahoug/new-api-custom:local`,由 GitHub Actions 构建**
   (workflow `.github/workflows/custom-docker.yml`:push 到 custom 分支且代码变更时
   自动构建 amd64 并推 GHCR,带 GHA 缓存;workflow 文件必须同时存在于 main
@@ -132,10 +136,10 @@ TS=$(date +%Y%m%d-%H%M%S)
 docker exec new-api-postgres sh -c "pg_dump -U root -d new-api -Fc" \
   > /data/appdata/new-api/backups/pre-custom-deploy-$TS.sql.gz
 
-# 3. 无缝切换(停机约 5 秒)
-cd /data/appdata/new-api
-docker compose -f docker-compose.yml -f docker-compose.override.yml \
-  -f docker-compose.deploy.yml up -d new-api
+# 3. 无缝切换(停机约 5 秒);一律绝对路径 -f,不依赖 cwd
+PROD=/data/appdata/new-api
+docker compose -f $PROD/docker-compose.yml -f $PROD/docker-compose.override.yml \
+  -f $PROD/docker-compose.deploy.yml up -d new-api
 
 # 4. 验证
 curl -s http://127.0.0.1:3000/api/status | grep version
@@ -166,16 +170,44 @@ destroy→create 约 2 秒、create→start 约 2 秒)+ 应用启动到监听 2.
 
 ```bash
 docker pull ghcr.io/yoahoug/new-api-custom:local        # 先拉,零中断
-cd /data/appdata/new-api
+PROD=/data/appdata/new-api                              # 绝对路径,禁止依赖 cwd
 docker rm -f new-api                                    # 不排空,立即释放端口
-docker compose -f docker-compose.yml -f docker-compose.override.yml \
-  -f docker-compose.deploy.yml up -d new-api
+docker compose -f $PROD/docker-compose.yml -f $PROD/docker-compose.override.yml \
+  -f $PROD/docker-compose.deploy.yml up -d new-api || { # up 失败立即回滚,绝不留空容器
+    docker tag ghcr.io/yoahoug/new-api-custom:rollback-<旧版本> \
+      ghcr.io/yoahoug/new-api-custom:local
+    docker compose -f $PROD/docker-compose.yml -f $PROD/docker-compose.override.yml \
+      -f $PROD/docker-compose.deploy.yml up -d new-api
+  }
+docker ps --filter name=new-api --format '{{.Status}} {{.Image}}'  # 必须 Up/healthy
 sleep 4 && curl -s http://127.0.0.1:3000/api/status | grep -o '"version":"[^"]*"'
 ```
 
 端口 3000 同一时刻只能被一个容器持有,新容器必须先拿到端口才能启动应用,因此"只切容器"
 做不到严格 0 中断;要 0 中断必须让一个常驻进程持有 3000(例如给宿主 openresty 加一个
 `listen 3000` 的转发 server 块,之后每次切换只 reload;或极小的转发容器)。
+
+### 2026-10-08 切换事故(必读,防复发)
+
+**事故**:09:27:50 执行切换时,复合命令里的 `cd /data/appdata/new-api &&` 前缀被 shell 的
+`&`(后台探测循环)截断成整段后台任务,后续 `docker rm -f new-api` 在前台执行了,但
+`docker compose up -d` 却在 clone 目录 `/data/appdata/new-api-custom` 下执行 → 报
+`open /data/appdata/new-api-custom/docker-compose.override.yml: no such file or directory`
+→ 容器被删且未重建,**生产中断 20 分 30 秒**(09:27:51 首个探测失败 → 09:48:21 恢复成功,
+0.2 秒探测共 5717 次失败;09:48:17 容器重建、约 3.6 秒后开始监听)。数据无损:
+postgres/redis 全程未动,切换前备份 `backups/pre-custom-deploy-20261008-092741.sql.gz` 有效;
+恢复后确认 `v1.0.0-rc.41-custom.4`、healthy、`/api/data/today` 401、日志无 error/panic。
+
+**防复发规则(硬性)**:
+
+1. compose 命令一律写成绝对路径 `-f $PROD/...`,`cd` 只作可读性前缀、不得作为路径依赖;
+   不要把 `cd X && ...` 放进会同 `&`、管道或其他操作符组合的复合命令里(后台化的会是
+   整条 `&&` 链,而后续行仍在原 cwd 执行)。
+2. `rm -f` 与 `up -d` 必须相邻且带失败回滚(`|| { 回滚 tag 重打 :local; 重试 up -d; }`),
+   之后立即 `docker ps --filter name=new-api` 确认容器真的回来了才算切换完成。
+3. 严禁在 clone 目录 `/data/appdata/new-api-custom` 跑 docker compose;该目录中的
+   本机构建 override 已于本次事故后删除(能力备份在生产目录的 `.bak-local-build`)。
+4. 切换期间保持 0.2 秒间隔探测(或至少切换后立刻验证),以便第一时间发现"删了没起来"。
 
 ### 服务器环境坑(已修复,勿回退)
 

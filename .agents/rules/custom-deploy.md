@@ -168,6 +168,13 @@ destroy→create 约 2 秒、create→start 约 2 秒)+ 应用启动到监听 2.
 检查约 3 秒)。应用启动到监听不可压缩,本机 Docker 生命周期开销约 2~6 秒浮动;
 **在途流会被立即切断**,若要给流留时间改用 `docker stop -t <秒>` 但窗口相应变长):
 
+**2026-10-09 实测**(rc.41-custom.4 → rc.42-custom.1,事故后加固流程首次实战,无事故):
+窗口 **28.65 秒**(0.2 秒探测 133 次失败),明显长于 10-02 的 9.05 秒,慢在 Docker 删除阶段——
+09:19:36.4 旧进程被 SIGKILL(应用日志结尾无 SIGTERM 记录,确为强杀),但 destroy 直到
+09:19:58 才完成(21.6 秒);其后 create+start 3.3 秒、应用 3.0 秒后 ready
+(`ready in 3022 ms`),09:20:05.0 首个探测成功。watchtower 全程未触碰 new-api,
+删除慢的原因未证实(宿主回收强杀进程或容器拆除延迟);若再遇长窗口,优先怀疑该删除阶段。
+
 ```bash
 docker pull ghcr.io/yoahoug/new-api-custom:local        # 先拉,零中断
 PROD=/data/appdata/new-api                              # 绝对路径,禁止依赖 cwd

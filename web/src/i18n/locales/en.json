@@ -7284,6 +7284,8 @@
     "Guard configuration saved": "Guard configuration saved",
     "Save configuration": "Save configuration",
     "No request guard plugins are installed.": "No request guard plugins are installed.",
-    "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota."
+    "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.",
+    "Groups: {{groups}}": "Groups: {{groups}}",
+    "Models: {{models}}": "Models: {{models}}"
   }
 }

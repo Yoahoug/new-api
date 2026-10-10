@@ -7284,6 +7284,8 @@
     "Guard configuration saved": "Конфигурация контролёра сохранена",
     "Save configuration": "Сохранить конфигурацию",
     "No request guard plugins are installed.": "Плагины-контролёры запросов не установлены.",
-    "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "Контролёры выполняются в указанном порядке до выбора канала. Отклонённый запрос никогда не достигает провайдера и не резервирует квоту."
+    "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "Контролёры выполняются в указанном порядке до выбора канала. Отклонённый запрос никогда не достигает провайдера и не резервирует квоту.",
+    "Groups: {{groups}}": "Группы: {{groups}}",
+    "Models: {{models}}": "Модели: {{models}}"
   }
 }

@@ -7284,6 +7284,8 @@
     "Guard configuration saved": "ガード設定を保存しました",
     "Save configuration": "設定を保存",
     "No request guard plugins are installed.": "リクエストガードプラグインはインストールされていません。",
-    "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "リクエストガードは一覧の順序でチャネル選択前に実行されます。拒否されたリクエストは上流に到達せず、クォータも消費しません。"
+    "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "リクエストガードは一覧の順序でチャネル選択前に実行されます。拒否されたリクエストは上流に到達せず、クォータも消費しません。",
+    "Groups: {{groups}}": "グループ：{{groups}}",
+    "Models: {{models}}": "モデル：{{models}}"
   }
 }

@@ -7284,6 +7284,8 @@
     "Guard configuration saved": "守衛配置已儲存",
     "Save configuration": "儲存配置",
     "No request guard plugins are installed.": "尚未安裝請求守衛外掛。",
-    "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "請求守衛按列表順序在選擇渠道之前執行。被拒絕的請求不會到達上游，也不會預扣額度。"
+    "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "請求守衛按列表順序在選擇渠道之前執行。被拒絕的請求不會到達上游，也不會預扣額度。",
+    "Groups: {{groups}}": "分組：{{groups}}",
+    "Models: {{models}}": "模型：{{models}}"
   }
 }

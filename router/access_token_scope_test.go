@@ -39,6 +39,8 @@ var accessTokenExemptRoutes = []string{
 	"GET /api/reset_password",
 	"POST /api/user/reset",
 	"POST /api/user/register",
+	// Custom fork: dev-only auto login, gated by DEV_AUTO_LOGIN and loopback.
+	"POST /api/user/dev-login",
 	"GET /api/user/login/encryption-key",
 	"POST /api/user/login",
 	"POST /api/user/login/2fa",

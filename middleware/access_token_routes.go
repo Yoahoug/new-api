@@ -194,6 +194,10 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"POST /api/plugin/task":                          accessTokenScopeRule("plugin:write"),
 	"PUT /api/plugin/task":                           accessTokenScopeRule("plugin:write"),
 	"GET /api/plugin/task/runtime/status":            accessTokenScopeRule("plugin:read"),
+	"GET /api/plugin/task/guards":                    accessTokenScopeRule("plugin:read"),
+	"PUT /api/plugin/task/guards/:key/config":        accessTokenScopeRule("plugin:write"),
+	"GET /api/plugin/task/interceptors":              accessTokenScopeRule("plugin:read"),
+	"PUT /api/plugin/task/interceptors/:key/config":  accessTokenScopeRule("plugin:write"),
 	"GET /api/plugin/task/marketplace/sources":       accessTokenScopeRule("plugin:read"),
 	"PUT /api/plugin/task/marketplace/sources":       accessTokenScopeRule("plugin:write"),
 	"GET /api/plugin/task/:key":                      accessTokenScopeRule("plugin:read"),
@@ -244,8 +248,14 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"GET /api/data/":                            accessTokenScopeRule("log:read"),
 	"GET /api/data/users":                       accessTokenScopeRule("log:read"),
 	"GET /api/data/self":                        accessTokenScopeRule("usage:read"),
+	"GET /api/data/today":                       accessTokenScopeRule("usage:read"),
+	"GET /api/data/daily":                       accessTokenScopeRule("usage:read"),
 	"GET /api/data/flow":                        accessTokenScopeRule("log:read"),
 	"GET /api/data/flow/self":                   accessTokenScopeRule("usage:read"),
+
+	// router/api-router.go: /api/official_prices
+	"GET /api/official_prices": accessTokenAnyRule,
+	"PUT /api/official_prices": accessTokenScopeRule("option:write"),
 
 	// router/api-router.go: /api/group, /api/prefill_group
 	"GET /api/group/":               accessTokenScopeRule("group:read"),

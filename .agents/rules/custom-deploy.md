@@ -227,6 +227,20 @@ postgres/redis 全程未动,切换前备份 `backups/pre-custom-deploy-20261008-
 - docker daemon 代理(`/etc/docker/daemon.json` 未配 registry 代理)只影响
   拉镜像,不影响 build 容器内部网络
 
+### 已知问题:前端测试时序敏感挂死(2026-10-13 定位)
+
+- 症状:`web/src/features/usage-logs/components/__tests__/detail-preview.test.tsx`
+  的 `task log prices use localized unit labels from pricing metadata` 用例在
+  **多文件同一 vitest 进程**运行时偶发 20s 超时(单文件隔离运行稳定 42ms 通过)
+- 触发条件:同一文件内上游新增的
+  `dynamic pricing without a saved tier uses a localized neutral fallback` 用例
+  把完整 `zh.json` 资源包 `addResourceBundle` 注入测试 i18n 实例并切换语言;
+  删掉该用例后 pair 运行 4/4 通过,base 版本测试文件(无该用例)4/4 通过
+- 定性:上游测试代码的时序敏感问题,与二改功能、与生产代码无关
+  (今日合并未改动相关组件);**不要**在本 fork 内擅自改上游测试文件
+- 日常处理:全量 vitest 出现该用例超时时,单独复跑该文件确认通过即可放行,
+  并在简报中说明;上游若修复则自然消失
+
 ## 历史决策(勿重复讨论)
 
 - 数据/数据库与官方版本兼容:所有 schema 变更走 GORM 迁移,三数据库兼容

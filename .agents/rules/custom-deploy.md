@@ -41,7 +41,8 @@
   底部折叠条为官方牌价估算(DeepSeek/智谱GLM,CNY,按模型);管理员显示全站,用户显示自己
 - 概览页:"今日消耗"用真按天口径(修复了 `computeTimeRange(1, useStartOfDay)`
   实际返回 [昨天0点,今天23:59] 的坑);右侧面板有个人官方计费估算块
-  (`official-cost-self-panel.tsx`)
+  (`web/src/features/dashboard/components/overview/official-cost-card.tsx`,
+  2026-10-14 核对时旧名 `official-cost-self-panel.tsx` 已不存在)
 - 用户列表"今日消耗"列(`web/src/features/users/hooks/use-today-quota.ts`,
   同 username 多行要累加不能覆盖)
 - 官方价目表在前端 `web/src/features/dashboard/lib/official-prices.ts`
@@ -240,6 +241,10 @@ postgres/redis 全程未动,切换前备份 `backups/pre-custom-deploy-20261008-
   (今日合并未改动相关组件);**不要**在本 fork 内擅自改上游测试文件
 - 日常处理:全量 vitest 出现该用例超时时,单独复跑该文件确认通过即可放行,
   并在简报中说明;上游若修复则自然消失
+- 同类泛化(2026-10-14 再次遇到):本机 4 核/11GB,全量 vitest(189 文件、约 2266 用例)
+  并行时,重型 jsdom 用例偶发 20s 超时(如 `features/models/__tests__/metadata-editing.test.tsx`
+  的 "preserves the price draft across tabs",隔离跑 3.8s 通过)。判定方法同前:
+  隔离复跑该文件全绿即可放行;不要为压测式超时改测试或产品代码
 
 ## 历史决策(勿重复讨论)
 

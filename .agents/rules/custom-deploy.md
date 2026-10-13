@@ -176,6 +176,14 @@ destroy→create 约 2 秒、create→start 约 2 秒)+ 应用启动到监听 2.
 (`ready in 3022 ms`),09:20:05.0 首个探测成功。watchtower 全程未触碰 new-api,
 删除慢的原因未证实(宿主回收强杀进程或容器拆除延迟);若再遇长窗口,优先怀疑该删除阶段。
 
+**2026-10-14 实测**(rc.44-custom.1 → rc.44-custom.2,含 tokens 新列迁移):
+窗口 **39.06 秒**(0.2 秒探测 181 次失败,06:49:04.50 → 06:49:43.56),第二次出现删除阶段慢——
+`docker rm -f` 于 06:49:04 发出,`docker events` 的 destroy 到 06:49:36 才发生(**kill→destroy ≈ 32 秒**),
+create/start 06:49:39.5(与 `StartedAt` 一致),应用 ready 3.2 秒,探测 06:49:43.56 恢复。
+应用与迁移都不慢(`ALTER TABLE "tokens" ADD "allow_user_quota_query" boolean` 仅 207ms)。
+`docker events` 显示该宿主当时还有多个其他项目的容器在做健康检查 exec(sub2api、halo、qinglong 等),
+Docker daemon 负载可能是删除慢的诱因;结论不变:**长窗口优先归因 kill→destroy 阶段,与应用无关**。
+
 ```bash
 docker pull ghcr.io/yoahoug/new-api-custom:local        # 先拉,零中断
 PROD=/data/appdata/new-api                              # 绝对路径,禁止依赖 cwd

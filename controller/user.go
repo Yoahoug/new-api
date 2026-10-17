@@ -71,14 +71,14 @@ func DevAutoLogin(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "Not Found"})
 		return
 	}
-	rootUser := model.GetRootUser()
-	if rootUser == nil || rootUser.Id <= 0 || rootUser.Status != common.UserStatusEnabled {
+	var rootUser model.User
+	if err := model.DB.Where("role = ?", common.RoleRootUser).First(&rootUser).Error; err != nil || rootUser.Id <= 0 || rootUser.Status != common.UserStatusEnabled {
 		common.SysLog("DEV_AUTO_LOGIN enabled but no enabled root user exists")
 		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "dev auto login unavailable: no root user"})
 		return
 	}
 	c.Set("login_method", "dev")
-	setupLoginAtAuthVersion(rootUser, rootUser.AuthVersion, c)
+	setupLoginAtAuthVersion(&rootUser, rootUser.AuthVersion, c)
 }
 
 func Login(c *gin.Context) {

@@ -1,5 +1,5 @@
 export type JSONValue = null | boolean | number | string | readonly JSONValue[] | {readonly [key: string]: JSONValue};
-/** json-clone@1 and submit-sse-delta@1 are accepted for earlier hosts; new plugins need neither. */
+/** json-clone@1, submit-sse-delta@1 and duration-auto@1 are accepted for earlier hosts; new plugins need none of them. Request guards and request interceptors additionally declare request-guard@1 / request-interceptor@1 on hosts that ship the custom plugin kinds. */
 export type HostCapability = "json-clone@1" | "submit-sse-delta@1" | "json-order@1" | "duration-auto@1" | "request-guard@1" | "request-interceptor@1";
 /** Kinds of upstream a driver can address: the vendor API itself, or another New API gateway with the same plugin installed. */
 export type UpstreamKind = "vendor" | "new_api";
@@ -152,7 +152,7 @@ type MetaIdentity = {apiVersion: 1; key: string; name: string; icon?: string; de
 );
 export type Meta = typeof meta;
 export interface TaskView {task_id: string; status: string; progress?: string; fail_reason?: string; created_at?: number; updated_at?: number; data?: unknown; properties?: Record<string, unknown>}
-export interface DriverContext {requestBody: unknown; requestHeaders: Readonly<Record<string, string>>; action: string; model: string; upstreamModel: string; baseUrl: string; apiKey?: string; authHeader: string; upstream: UpstreamContext; files: readonly FileReference[]; publicTaskId: string; originTasks?: readonly {taskId: string; upstreamTaskId: string; action: string; status: string; data: unknown}[]}
+export interface DriverContext {requestBody: unknown; /** Client request headers, first value under the canonical name, without gateway credentials; Content-Type and Accept are always present. Older gateways pass only those two. */ requestHeaders: Readonly<Record<string, string>>; action: string; model: string; upstreamModel: string; baseUrl: string; apiKey?: string; authHeader: string; upstream: UpstreamContext; files: readonly FileReference[]; publicTaskId: string; originTasks?: readonly {taskId: string; upstreamTaskId: string; action: string; status: string; data: unknown}[]}
 export interface TaskQueryContext {taskId: string; publicTaskId: string; action: string; model: string; upstreamModel: string; baseUrl: string; apiKey?: string; authHeader: string; auth?: unknown; upstream: UpstreamContext; data: unknown; state: unknown}
 export interface BatchQueryContext {baseUrl: string; apiKey?: string; authHeader: string; auth?: unknown; upstream: UpstreamContext; tasks: readonly TaskQueryContext[]}
 export type HookHTTPResponse = {readonly status: number; readonly headers: Readonly<Record<string, string>>}

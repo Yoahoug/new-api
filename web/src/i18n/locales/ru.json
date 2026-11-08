@@ -7436,6 +7436,7 @@
     "No request guard plugins are installed.": "Плагины-контролёры запросов не установлены.",
     "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "Контролёры выполняются в указанном порядке до выбора канала. Отклонённый запрос никогда не достигает провайдера и не резервирует квоту.",
     "Groups: {{groups}}": "Группы: {{groups}}",
-    "Models: {{models}}": "Модели: {{models}}"
-  }
+    "Models: {{models}}": "Модели: {{models}}",
+    "By clicking sign in, you agree to our": "Нажимая «Войти», вы соглашаетесь с нашими",
+    "By creating an account, you agree to our": "Создавая аккаунт, вы соглашаетесь с нашими"  }
 }

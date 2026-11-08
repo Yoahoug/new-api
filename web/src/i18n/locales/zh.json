@@ -7436,6 +7436,7 @@
     "No request guard plugins are installed.": "尚未安装请求守卫插件。",
     "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "请求守卫按列表顺序在选择渠道之前执行。被拒绝的请求不会到达上游，也不会预扣额度。",
     "Groups: {{groups}}": "分组：{{groups}}",
-    "Models: {{models}}": "模型：{{models}}"
-  }
+    "Models: {{models}}": "模型：{{models}}",
+    "By clicking sign in, you agree to our": "点击登录即表示您同意我们的",
+    "By creating an account, you agree to our": "创建账户即表示您同意我们的"  }
 }

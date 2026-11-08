@@ -528,7 +528,7 @@
     "An unexpected error occurred": "Đã xảy ra lỗi không mong muốn",
     "An unknown error occurred": "Đã xảy ra lỗi không xác định",
     "Analyze data": "Phân tích dữ liệu",
-    "and": "and",
+    "and": "và",
     "And {{count}} more models": "Và {{count}} mô hình khác",
     "Announcement #{{index}} content cannot exceed 500 characters": "Nội dung của thông báo #{{index}} không được vượt quá 500 ký tự",
     "Announcement #{{index}} has an invalid publish date format": "Thông báo #{{index}} có định dạng ngày đăng không hợp lệ",
@@ -7436,6 +7436,7 @@
     "No request guard plugins are installed.": "Chưa cài đặt plugin bộ chặn yêu cầu nào.",
     "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "Các bộ chặn chạy theo thứ tự liệt kê trước khi chọn kênh. Yêu cầu bị từ chối không bao giờ tới nhà cung cấp và không đặt trước hạn mức.",
     "Groups: {{groups}}": "Nhóm: {{groups}}",
-    "Models: {{models}}": "Mô hình: {{models}}"
-  }
+    "Models: {{models}}": "Mô hình: {{models}}",
+    "By clicking sign in, you agree to our": "Bằng cách nhấp đăng nhập, bạn đồng ý với",
+    "By creating an account, you agree to our": "Bằng cách tạo tài khoản, bạn đồng ý với"  }
 }

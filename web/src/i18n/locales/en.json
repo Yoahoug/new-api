@@ -7436,6 +7436,8 @@
     "No request guard plugins are installed.": "No request guard plugins are installed.",
     "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.",
     "Groups: {{groups}}": "Groups: {{groups}}",
-    "Models: {{models}}": "Models: {{models}}"
+    "Models: {{models}}": "Models: {{models}}",
+    "By clicking sign in, you agree to our": "By clicking sign in, you agree to our",
+    "By creating an account, you agree to our": "By creating an account, you agree to our"
   }
 }

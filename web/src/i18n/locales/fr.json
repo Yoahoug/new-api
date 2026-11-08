@@ -7436,6 +7436,7 @@
     "No request guard plugins are installed.": "Aucun plugin de garde de requêtes n'est installé.",
     "Request guards run in listed order before a channel is selected. A denied request never reaches an upstream and never reserves quota.": "Les gardes s'exécutent dans l'ordre indiqué avant la sélection du canal. Une requête refusée n'atteint jamais un fournisseur et ne réserve jamais de quota.",
     "Groups: {{groups}}": "Groupes : {{groups}}",
-    "Models: {{models}}": "Modèles : {{models}}"
-  }
+    "Models: {{models}}": "Modèles : {{models}}",
+    "By clicking sign in, you agree to our": "En cliquant sur se connecter, vous acceptez nos",
+    "By creating an account, you agree to our": "En créant un compte, vous acceptez nos"  }
 }

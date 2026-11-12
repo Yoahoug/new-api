@@ -420,8 +420,8 @@ func decodeGuardDecision(value any) (GuardDecision, error) {
 	if status, isNumber := jsonNumber(object["status"]); isNumber {
 		decision.Status = int(status)
 	}
-	decision.Code = optionalString(object, "code")
-	decision.Message = optionalString(object, "message")
+	decision.Code = trimmedOptionalString(object, "code")
+	decision.Message = trimmedOptionalString(object, "message")
 	headers, hasHeaders := object["headers"].(map[string]any)
 	if hasHeaders && headers != nil {
 		decision.Headers = make(map[string]string, len(headers))
@@ -466,7 +466,7 @@ func guardResponseHeaderAllowed(name string) bool {
 	return !slices.Contains(guardResponseHeaderBlocked, normalized)
 }
 
-func optionalString(object map[string]any, key string) string {
+func trimmedOptionalString(object map[string]any, key string) string {
 	text, _ := object[key].(string)
 	return strings.TrimSpace(text)
 }

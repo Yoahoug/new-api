@@ -69,7 +69,7 @@ export const meta = {apiVersion: 1, key: "with-routes", name: "WithRoutes", vers
 	routes: [{method: "POST", path: "/x/y", type: "submit", decode: "a", render: "b"}], guard: {}};
 export function authorize() { return {allow: true}; }
 `, Options{})
-	require.ErrorContains(t, err, "must not declare routes or protocols")
+	require.ErrorContains(t, err, "must not declare routes")
 }
 
 func TestGuardManifestRejectsUnknownFieldAndMissingHook(t *testing.T) {

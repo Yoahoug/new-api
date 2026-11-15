@@ -299,6 +299,55 @@
       "type": "boolean",
       "description": "A request skips a failed instance of the plugin instead of stopping with 500 request_plugin_failed. Only a plugin with a request processing part may declare it; the host checks this at load, as for configSchema."
     },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "models": {
+          "type": "array",
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "channelTypes": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "models"
+          ],
+          "properties": {
+            "models": {
+              "minItems": 1
+            }
+          }
+        },
+        {
+          "required": [
+            "channelTypes"
+          ],
+          "properties": {
+            "channelTypes": {
+              "minItems": 1
+            }
+          }
+        }
+      ],
+      "description": "The requests the plugin is made for: its models (matched like an instance's models) and the new-api channel types its requests go through; an empty or missing list leaves that side open, but one of them must be listed. An administrator confirms it once; the instance then runs on every request it holds, new channels included. Only a plugin with a request processing part may declare it; the host checks this at load."
+    },
     "samples": {
       "type": "array",
       "maxItems": 8,
@@ -470,6 +519,39 @@
           "guard"
         ]
       }
+    },
+    {
+      "required": [
+        "models",
+        "fetchMode"
+      ]
+    },
+    {
+      "required": [
+        "relay"
+      ],
+      "properties": {
+        "relay": {
+          "minItems": 1
+        }
+      }
+    },
+    {
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "fetchMode"
+            ]
+          },
+          {
+            "required": [
+              "relay"
+            ]
+          }
+        ]
+      },
+      "description": "A request processing part alone, which the host reads from the exported stage hooks."
     },
     {
       "required": [

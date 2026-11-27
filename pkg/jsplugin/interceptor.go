@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"math"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/pluginkit"
 )
 
 // A request interceptor rewrites the outbound request after the channel is
@@ -20,47 +20,6 @@ import (
 // a field one format forbids — that no built-in adaptor should hard-code. It
 // complements the guard: a guard decides whether a request may run, an
 // interceptor decides what the allowed request looks like on the wire.
-const (
-	// InterceptorCapability marks a host that can run meta.interceptor hooks.
-	InterceptorCapability = "request-interceptor@1"
-
-	// DefaultInterceptHook is the export an interceptor block binds to.
-	DefaultInterceptHook = "intercept"
-
-	// DefaultInterceptorTimeout bounds one hook call. Interceptors run on the
-	// request path after the channel is selected, so like a guard they must
-	// not stall traffic; unlike a guard they get the task-plugin budget when
-	// the block asks for it, because a stream may carry a large body.
-	DefaultInterceptorTimeout = 2 * time.Second
-	MinInterceptorTimeout     = 100 * time.Millisecond
-	MaxInterceptorTimeout     = DefaultCallTimeout
-
-	// MaxInterceptorBodyBytes bounds the JSON body an interceptor may read and
-	// rewrite. Larger requests (rare vision or audio payloads) pass unhooked:
-	// a plugin that needs to see them must not silently break them either.
-	MaxInterceptorBodyBytes = 4 << 20
-
-	MaxInterceptorHeaderEntries = 64
-)
-
-// InterceptorMeta declares how one plugin joins the outbound request chain.
-// The same isolation rules as the guard apply: declaring it excludes the
-// task-plugin driver surface.
-type InterceptorMeta struct {
-	Priority  int      `json:"priority"`
-	FailOpen  bool     `json:"failOpen,omitempty"`
-	TimeoutMs int      `json:"timeoutMs,omitempty"`
-	Methods   []string `json:"methods,omitempty"`
-	Paths     []string `json:"paths,omitempty"`
-	// Models narrows the interceptor to upstream (mapped) model names, so an
-	// interceptor written for one vendor endpoint follows the channel's model
-	// mapping instead of duplicating it.
-	Models       []string           `json:"models,omitempty"`
-	Groups       []string           `json:"groups,omitempty"`
-	Intercept    string             `json:"intercept,omitempty"`
-	Complete     string             `json:"complete,omitempty"`
-	ConfigFields []GuardConfigField `json:"configFields,omitempty"`
-}
 
 // InterceptRequest is the mutable outbound view an interceptor rewrites. Body
 // is the exact JSON the host will send upstream (after conversion, param
@@ -126,7 +85,7 @@ type InterceptDecision struct {
 // interceptorEntry is one plugin's slot in the outbound chain.
 type interceptorEntry struct {
 	plugin   *LoadedPlugin
-	meta     InterceptorMeta
+	meta     pluginkit.InterceptorMeta
 	timeout  time.Duration
 	complete bool
 }
@@ -151,10 +110,10 @@ func (e *interceptorEntry) claims(request InterceptRequest) bool {
 		if request.UpstreamModel == "" {
 			return false
 		}
-		folded := asciiFold(request.UpstreamModel)
+		folded := ASCIIFold(request.UpstreamModel)
 		matched := false
 		for _, model := range e.meta.Models {
-			if asciiFold(model) == folded {
+			if ASCIIFold(model) == folded {
 				matched = true
 				break
 			}
@@ -354,14 +313,6 @@ func (g *RoutingGeneration) OutboundInterceptors() []*LoadedPlugin {
 	return interceptors
 }
 
-// IsRequestInterceptor reports whether the plugin rewrites outbound requests.
-func (m Meta) IsRequestInterceptor() bool {
-	return m.Interceptor != nil
-}
-
-// interceptorHeaderPolicy guards the fields the host owns on the outbound
-// request. An interceptor may add vendor headers, session ids, and routing
-// hints, but it must not be able to re-aim authentication.
 func interceptorHeaderPolicy(name string) error {
 	normalized := strings.ToLower(strings.TrimSpace(name))
 	if normalized == "" {
@@ -434,168 +385,4 @@ func decodeInterceptDecision(value any) (InterceptDecision, error) {
 		}
 	}
 	return decision, nil
-}
-
-func interceptorTimeout(meta InterceptorMeta) time.Duration {
-	if meta.TimeoutMs <= 0 {
-		return DefaultInterceptorTimeout
-	}
-	return min(max(time.Duration(meta.TimeoutMs)*time.Millisecond, MinInterceptorTimeout), MaxInterceptorTimeout)
-}
-
-// normalizeInterceptorPluginMeta finishes validating a manifest that declares
-// meta.interceptor. Unlike a guard, an interceptor deliberately touches the
-// outbound request, so it may not also be a guard: one plugin, one question.
-func normalizeInterceptorPluginMeta(meta *Meta) error {
-	if err := normalizeInterceptorMeta(meta.Interceptor); err != nil {
-		return err
-	}
-	if !slices.Contains(meta.RequiredCapabilities, InterceptorCapability) {
-		return fmt.Errorf("plugin %s declares meta.interceptor and must require the %s capability", meta.Key, InterceptorCapability)
-	}
-	return rejectTaskPluginSurface(meta, "meta.interceptor")
-}
-
-func normalizeInterceptorMeta(meta *InterceptorMeta) error {
-	meta.Intercept = strings.TrimSpace(meta.Intercept)
-	if meta.Intercept == "" {
-		meta.Intercept = DefaultInterceptHook
-	}
-	meta.Complete = strings.TrimSpace(meta.Complete)
-	if meta.Priority < math.MinInt32 || meta.Priority > math.MaxInt32 {
-		return fmt.Errorf("plugin meta interceptor priority must be a signed 32-bit integer")
-	}
-	if meta.TimeoutMs < 0 {
-		return fmt.Errorf("plugin meta interceptor timeoutMs must be positive")
-	}
-	for index, method := range meta.Methods {
-		method = strings.ToUpper(strings.TrimSpace(method))
-		if !slices.Contains([]string{"GET", "POST", "PUT", "PATCH", "DELETE"}, method) {
-			return fmt.Errorf("plugin meta interceptor methods must be HTTP methods")
-		}
-		meta.Methods[index] = method
-	}
-	for _, list := range [][]string{meta.Methods, meta.Paths, meta.Models, meta.Groups} {
-		if len(list) > MaxGuardScopeEntries {
-			return fmt.Errorf("plugin meta interceptor scope lists must not exceed %d entries", MaxGuardScopeEntries)
-		}
-	}
-	seenPaths := make(map[string]struct{}, len(meta.Paths))
-	for _, path := range meta.Paths {
-		if err := validateGuardPath(path); err != nil {
-			return err
-		}
-		if _, duplicate := seenPaths[path]; duplicate {
-			return fmt.Errorf("plugin meta interceptor paths must be unique")
-		}
-		seenPaths[path] = struct{}{}
-	}
-	for _, model := range meta.Models {
-		if model == "" || strings.TrimSpace(model) != model {
-			return fmt.Errorf("plugin meta interceptor models must contain non-empty canonical names")
-		}
-	}
-	for _, group := range meta.Groups {
-		if strings.TrimSpace(group) == "" {
-			return fmt.Errorf("plugin meta interceptor groups must contain non-empty names")
-		}
-	}
-	if len(meta.ConfigFields) > MaxGuardConfigFields {
-		return fmt.Errorf("plugin meta interceptor configFields must not exceed %d entries", MaxGuardConfigFields)
-	}
-	seenFields := make(map[string]struct{}, len(meta.ConfigFields))
-	for index := range meta.ConfigFields {
-		field := &meta.ConfigFields[index]
-		field.Name = strings.TrimSpace(field.Name)
-		if field.Name == "" || len(field.Name) > MaxGuardConfigFieldName {
-			return fmt.Errorf("plugin meta interceptor configFields names must be 1 to %d characters", MaxGuardConfigFieldName)
-		}
-		if _, duplicate := seenFields[field.Name]; duplicate {
-			return fmt.Errorf("plugin meta interceptor configFields must be unique")
-		}
-		seenFields[field.Name] = struct{}{}
-		if !slices.Contains(guardConfigFieldTypes, field.Type) {
-			return fmt.Errorf("plugin meta interceptor configFields[%d] type must be one of %s", index, strings.Join(guardConfigFieldTypes, ", "))
-		}
-	}
-	return nil
-}
-
-// decodeInterceptorMeta reads the manifest's interceptor block with the same
-// unknown-field strictness as the guard block.
-func decodeInterceptorMeta(value any) (*InterceptorMeta, error) {
-	object, ok := value.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("plugin meta interceptor must be an object")
-	}
-	for field := range object {
-		switch field {
-		case "priority", "failOpen", "timeoutMs", "methods", "paths", "models", "groups", "intercept", "complete", "configFields":
-		default:
-			return nil, fmt.Errorf("plugin meta interceptor has unknown field %q", field)
-		}
-	}
-	meta := &InterceptorMeta{}
-	var err error
-	if meta.Priority, err = integerMetaField(object, "priority"); err != nil {
-		return nil, err
-	}
-	if meta.TimeoutMs, err = integerMetaField(object, "timeoutMs"); err != nil {
-		return nil, err
-	}
-	if meta.FailOpen, err = booleanMetaField(object, "failOpen"); err != nil {
-		return nil, err
-	}
-	if meta.Intercept, err = stringMetaField(object, "intercept"); err != nil {
-		return nil, err
-	}
-	if meta.Complete, err = stringMetaField(object, "complete"); err != nil {
-		return nil, err
-	}
-	for _, field := range []struct {
-		name   string
-		target *[]string
-	}{
-		{"methods", &meta.Methods},
-		{"paths", &meta.Paths},
-		{"models", &meta.Models},
-		{"groups", &meta.Groups},
-	} {
-		values, sliceErr := strictStringSlice(object, field.name)
-		if sliceErr != nil {
-			return nil, sliceErr
-		}
-		*field.target = values
-	}
-	if rawFields, exists := object["configFields"]; exists {
-		fields, fieldsErr := decodeGuardConfigFields(rawFields)
-		if fieldsErr != nil {
-			return nil, fmt.Errorf("plugin meta interceptor configFields: %w", fieldsErr)
-		}
-		meta.ConfigFields = fields
-	}
-	return meta, nil
-}
-
-// verifyInterceptorExports checks that every hook the block binds to exists.
-func verifyInterceptorExports(engine *Engine, meta Meta) error {
-	for _, hook := range []struct {
-		bind string
-		kind string
-	}{
-		{meta.Interceptor.Intercept, "decision hook"},
-		{meta.Interceptor.Complete, "completion hook"},
-	} {
-		if hook.bind == "" {
-			continue
-		}
-		callable, err := engine.HasCallablePath(context.Background(), hook.bind)
-		if err != nil {
-			return err
-		}
-		if !callable {
-			return fmt.Errorf("plugin %s declares meta.interceptor %s %q but does not export it", meta.Key, hook.kind, hook.bind)
-		}
-	}
-	return nil
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/pluginkit"
 )
 
 // A task plugin drives one upstream model. A request guard decides whether a
@@ -20,30 +21,6 @@ import (
 // admin surfaces, but they answer different questions and therefore have
 // separate hooks: a guard never builds a request, never parses a response, and
 // never reports usage.
-const (
-	// GuardCapability marks a host that can run meta.guard hooks. A guard
-	// plugin requires it so an older host rejects the plugin instead of
-	// loading a manifest whose permission hooks it would silently ignore.
-	GuardCapability = "request-guard@1"
-
-	// DefaultGuardHook is the export a guard block binds its decision to.
-	DefaultGuardHook = "authorize"
-	// DefaultGuardCompleteHook is the optional terminal-notification export.
-	DefaultGuardCompleteHook = "onComplete"
-
-	// DefaultGuardTimeout is deliberately shorter than DefaultCallTimeout: a
-	// guard gates every request, so a slow guard costs latency on all traffic.
-	DefaultGuardTimeout = 2 * time.Second
-	MinGuardTimeout     = 100 * time.Millisecond
-	MaxGuardTimeout     = DefaultCallTimeout
-
-	MaxGuardConfigFields    = 64
-	MaxGuardConfigFieldName = 64
-	MaxGuardScopeEntries    = 128
-	MaxGuardPathLength      = 191
-)
-
-var guardConfigFieldTypes = []string{"string", "number", "integer", "boolean", "enum", "array", "object"}
 
 // Terminal outcomes reported to the optional completion hook. The host
 // classifies the request so a plugin never has to infer the outcome.
@@ -53,33 +30,6 @@ const (
 	GuardOutcomeFailed   = "failed"
 	GuardOutcomeCanceled = "canceled"
 )
-
-// GuardMeta declares how one plugin participates in the request guard chain. A
-// plugin that declares it is a guard; a plugin that does not is a task plugin.
-// The two never mix: a guard needs no models, routes, or usage schema.
-type GuardMeta struct {
-	Priority     int                `json:"priority"`
-	Exclusive    bool               `json:"exclusive,omitempty"`
-	FailOpen     bool               `json:"failOpen,omitempty"`
-	TimeoutMs    int                `json:"timeoutMs,omitempty"`
-	Methods      []string           `json:"methods,omitempty"`
-	Paths        []string           `json:"paths,omitempty"`
-	ExcludePaths []string           `json:"excludePaths,omitempty"`
-	Models       []string           `json:"models,omitempty"`
-	Groups       []string           `json:"groups,omitempty"`
-	Authorize    string             `json:"authorize,omitempty"`
-	Complete     string             `json:"complete,omitempty"`
-	ConfigFields []GuardConfigField `json:"configFields,omitempty"`
-}
-
-// GuardConfigField describes one administrator-supplied setting so a
-// management client can render a form without knowing the plugin's rules.
-type GuardConfigField struct {
-	Name        string        `json:"name"`
-	Type        string        `json:"type"`
-	EnumValues  []string      `json:"enumValues,omitempty"`
-	Description LocalizedText `json:"description,omitempty"`
-}
 
 // GuardRequest is the immutable view a guard decides from. The host builds it
 // after authentication and before channel selection, so a guard can neither
@@ -189,7 +139,7 @@ type GuardOutcome struct {
 // ordering is fixed for the lifetime of that generation.
 type guardEntry struct {
 	plugin   *LoadedPlugin
-	meta     GuardMeta
+	meta     pluginkit.GuardMeta
 	timeout  time.Duration
 	complete bool
 }
@@ -219,10 +169,10 @@ func (e *guardEntry) claims(request GuardRequest) bool {
 		if request.Model == "" {
 			return false
 		}
-		folded := asciiFold(request.Model)
+		folded := ASCIIFold(request.Model)
 		matched := false
 		for _, model := range e.meta.Models {
-			if asciiFold(model) == folded {
+			if ASCIIFold(model) == folded {
 				matched = true
 				break
 			}
@@ -350,6 +300,20 @@ func (e *guardEntry) decide(ctx context.Context, request GuardRequest) (GuardDec
 		return GuardDecision{}, fmt.Errorf("guard hook %q returned an invalid decision: %w", e.meta.Authorize, err)
 	}
 	return decision, nil
+}
+
+// RequestGuards returns the installed request guards in chain order, highest
+// priority first, so an administration client can present them in the order
+// their decisions are actually made.
+func (g *RoutingGeneration) RequestGuards() []*LoadedPlugin {
+	if g == nil || len(g.guards) == 0 {
+		return nil
+	}
+	guards := make([]*LoadedPlugin, 0, len(g.guards))
+	for _, entry := range g.guards {
+		guards = append(guards, entry.plugin)
+	}
+	return guards
 }
 
 // NotifyGuardCompletion delivers one terminal event to every guard that was
@@ -518,318 +482,4 @@ func IsGuardConfigValue(field GuardConfigField, value any) bool {
 	default:
 		return false
 	}
-}
-
-// decodeGuardMeta reads the manifest's guard block. An unknown field is
-// rejected rather than ignored, so a typo in a security-relevant declaration
-// fails the upload instead of silently widening or narrowing what the guard
-// applies to.
-func decodeGuardMeta(value any) (*GuardMeta, error) {
-	object, ok := value.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("plugin meta guard must be an object")
-	}
-	for field := range object {
-		switch field {
-		case "priority", "exclusive", "failOpen", "timeoutMs", "methods", "paths", "excludePaths", "models", "groups", "authorize", "complete", "configFields":
-		default:
-			return nil, fmt.Errorf("plugin meta guard has unknown field %q", field)
-		}
-	}
-	guard := &GuardMeta{}
-	var err error
-	if guard.Priority, err = integerMetaField(object, "priority"); err != nil {
-		return nil, err
-	}
-	if guard.TimeoutMs, err = integerMetaField(object, "timeoutMs"); err != nil {
-		return nil, err
-	}
-	if guard.Exclusive, err = booleanMetaField(object, "exclusive"); err != nil {
-		return nil, err
-	}
-	if guard.FailOpen, err = booleanMetaField(object, "failOpen"); err != nil {
-		return nil, err
-	}
-	if guard.Authorize, err = stringMetaField(object, "authorize"); err != nil {
-		return nil, err
-	}
-	if guard.Complete, err = stringMetaField(object, "complete"); err != nil {
-		return nil, err
-	}
-	for _, field := range []struct {
-		name   string
-		target *[]string
-	}{
-		{"methods", &guard.Methods},
-		{"paths", &guard.Paths},
-		{"excludePaths", &guard.ExcludePaths},
-		{"models", &guard.Models},
-		{"groups", &guard.Groups},
-	} {
-		values, sliceErr := strictStringSlice(object, field.name)
-		if sliceErr != nil {
-			return nil, sliceErr
-		}
-		*field.target = values
-	}
-	if rawFields, exists := object["configFields"]; exists {
-		fields, fieldsErr := decodeGuardConfigFields(rawFields)
-		if fieldsErr != nil {
-			return nil, fmt.Errorf("plugin meta guard configFields: %w", fieldsErr)
-		}
-		guard.ConfigFields = fields
-	}
-	return guard, nil
-}
-
-// decodeGuardConfigFields reads a configFields array shared by the guard and
-// interceptor blocks.
-func decodeGuardConfigFields(value any) ([]GuardConfigField, error) {
-	items, ok := value.([]any)
-	if !ok {
-		return nil, fmt.Errorf("must be an array")
-	}
-	fields := make([]GuardConfigField, 0, len(items))
-	for _, item := range items {
-		fieldObject, isObject := item.(map[string]any)
-		if !isObject {
-			return nil, fmt.Errorf("entries must be objects")
-		}
-		for name := range fieldObject {
-			if name != "name" && name != "type" && name != "enumValues" && name != "description" {
-				return nil, fmt.Errorf("entry has unknown field %q", name)
-			}
-		}
-		field := GuardConfigField{}
-		var fieldErr error
-		if field.Name, fieldErr = stringMetaField(fieldObject, "name"); fieldErr != nil {
-			return nil, fieldErr
-		}
-		if field.Type, fieldErr = stringMetaField(fieldObject, "type"); fieldErr != nil {
-			return nil, fieldErr
-		}
-		if field.Description, fieldErr = localizedTextMetaField(fieldObject, "description", maxUsageFieldDescriptionRunes); fieldErr != nil {
-			return nil, fieldErr
-		}
-		if field.EnumValues, fieldErr = strictStringSlice(fieldObject, "enumValues"); fieldErr != nil {
-			return nil, fieldErr
-		}
-		fields = append(fields, field)
-	}
-	return fields, nil
-}
-
-func booleanMetaField(object map[string]any, name string) (bool, error) {
-	raw, exists := object[name]
-	if !exists {
-		return false, nil
-	}
-	value, ok := raw.(bool)
-	if !ok {
-		return false, fmt.Errorf("plugin meta guard field %q must be a boolean", name)
-	}
-	return value, nil
-}
-
-func guardTimeout(guard GuardMeta) time.Duration {
-	if guard.TimeoutMs <= 0 {
-		return DefaultGuardTimeout
-	}
-	return min(max(time.Duration(guard.TimeoutMs)*time.Millisecond, MinGuardTimeout), MaxGuardTimeout)
-}
-
-// normalizeGuardPluginMeta finishes validating a manifest that declares
-// meta.guard. It runs after the checks every plugin shares (identity, version,
-// localized copy) and returns before the task-plugin checks, because a guard
-// drives no upstream task: it has no models, no routes, no billing, and no
-// outbound request of its own.
-func normalizeGuardPluginMeta(meta *Meta) error {
-	if meta.Interceptor != nil {
-		return fmt.Errorf("plugin %s cannot declare both guard and interceptor", meta.Key)
-	}
-	if err := normalizeGuardMeta(meta.Guard); err != nil {
-		return err
-	}
-	if !slices.Contains(meta.RequiredCapabilities, GuardCapability) {
-		return fmt.Errorf("plugin %s declares meta.guard and must require the %s capability", meta.Key, GuardCapability)
-	}
-	if err := rejectTaskPluginSurface(meta, "meta.guard"); err != nil {
-		return err
-	}
-	return nil
-}
-
-// rejectTaskPluginSurface enforces the one-kind-per-plugin rule shared by every
-// non-task plugin kind. The capability label names the declaring block so the
-// upload error says which surface conflicts with the task-plugin fields.
-func rejectTaskPluginSurface(meta *Meta, capabilityLabel string) error {
-	if meta.FetchMode != "" {
-		return fmt.Errorf("plugin %s declares %s and must not declare fetchMode", meta.Key, capabilityLabel)
-	}
-	if len(meta.Models) > 0 {
-		return fmt.Errorf("plugin %s declares %s and must not declare models", meta.Key, capabilityLabel)
-	}
-	if len(meta.Routes) > 0 || len(meta.Protocols) > 0 {
-		return fmt.Errorf("plugin %s declares %s and must not declare routes or protocols", meta.Key, capabilityLabel)
-	}
-	if len(meta.UsageSchema) > 0 || len(meta.UsageProfiles) > 0 || len(meta.UsageExamples) > 0 {
-		return fmt.Errorf("plugin %s declares %s and must not declare a usage schema", meta.Key, capabilityLabel)
-	}
-	if len(meta.ChannelTypes) > 0 {
-		return fmt.Errorf("plugin %s declares %s and must not declare channelTypes", meta.Key, capabilityLabel)
-	}
-	if meta.BaseURL != "" || len(meta.AllowedHosts) > 0 || len(meta.Upstreams) > 0 {
-		return fmt.Errorf("plugin %s declares %s and must not declare baseUrl, allowedHosts, or upstreams", meta.Key, capabilityLabel)
-	}
-	if len(meta.SubmitResponseTypes) > 0 && !slices.Equal(meta.SubmitResponseTypes, []string{"json"}) {
-		return fmt.Errorf("plugin %s declares %s and must not declare submitResponseTypes", meta.Key, capabilityLabel)
-	}
-	return nil
-}
-
-// IsRequestGuard reports whether the plugin guards requests instead of
-// driving upstream tasks.
-func (m Meta) IsRequestGuard() bool {
-	return m.Guard != nil
-}
-
-// TaskPluginBindableError explains why a plugin cannot back a channel. A
-// request guard answers whether a request may run and has no upstream task of
-// its own, so it is never bindable to a channel.
-func (m Meta) TaskPluginBindableError() error {
-	if m.Guard != nil {
-		return fmt.Errorf("plugin %s is a request guard and cannot be bound to a channel", m.Key)
-	}
-	return nil
-}
-
-// RequestGuards returns the installed request guards in chain order, highest
-// priority first, so an administration client can present them in the order
-// their decisions are actually made.
-func (g *RoutingGeneration) RequestGuards() []*LoadedPlugin {
-	if g == nil || len(g.guards) == 0 {
-		return nil
-	}
-	guards := make([]*LoadedPlugin, 0, len(g.guards))
-	for _, entry := range g.guards {
-		guards = append(guards, entry.plugin)
-	}
-	return guards
-}
-
-// verifyGuardExports checks that every hook a guard block binds to exists, so
-// a guard can never reach the request path with a decision hook that is
-// missing, misspelled, or not a function.
-func verifyGuardExports(engine *Engine, meta Meta) error {
-	for _, hook := range []struct {
-		name string
-		bind string
-	}{
-		{"decision hook", meta.Guard.Authorize},
-		{"completion hook", meta.Guard.Complete},
-	} {
-		if hook.bind == "" {
-			continue
-		}
-		callable, err := engine.HasCallablePath(context.Background(), hook.bind)
-		if err != nil {
-			return err
-		}
-		if !callable {
-			if hook.bind == meta.Guard.Authorize {
-				return fmt.Errorf("plugin %s declares meta.guard but does not export %q", meta.Key, hook.bind)
-			}
-			return fmt.Errorf("plugin %s declares meta.guard complete hook %q but does not export it", meta.Key, hook.bind)
-		}
-	}
-	return nil
-}
-
-func normalizeGuardMeta(guard *GuardMeta) error {
-	guard.Authorize = strings.TrimSpace(guard.Authorize)
-	if guard.Authorize == "" {
-		guard.Authorize = DefaultGuardHook
-	}
-	guard.Complete = strings.TrimSpace(guard.Complete)
-	if guard.Priority < math.MinInt32 || guard.Priority > math.MaxInt32 {
-		return fmt.Errorf("plugin meta guard priority must be a signed 32-bit integer")
-	}
-	if guard.TimeoutMs < 0 {
-		return fmt.Errorf("plugin meta guard timeoutMs must be positive")
-	}
-	for index, method := range guard.Methods {
-		method = strings.ToUpper(strings.TrimSpace(method))
-		if !slices.Contains([]string{"GET", "POST", "PUT", "PATCH", "DELETE"}, method) {
-			return fmt.Errorf("plugin meta guard methods must be HTTP methods")
-		}
-		guard.Methods[index] = method
-	}
-	for _, list := range [][]string{guard.Methods, guard.Paths, guard.ExcludePaths, guard.Models, guard.Groups} {
-		if len(list) > MaxGuardScopeEntries {
-			return fmt.Errorf("plugin meta guard scope lists must not exceed %d entries", MaxGuardScopeEntries)
-		}
-	}
-	seenPaths := make(map[string]struct{}, len(guard.Paths))
-	for _, path := range guard.Paths {
-		if err := validateGuardPath(path); err != nil {
-			return err
-		}
-		if _, duplicate := seenPaths[path]; duplicate {
-			return fmt.Errorf("plugin meta guard paths must be unique")
-		}
-		seenPaths[path] = struct{}{}
-	}
-	for _, path := range guard.ExcludePaths {
-		if err := validateGuardPath(path); err != nil {
-			return err
-		}
-	}
-	for _, group := range guard.Groups {
-		if strings.TrimSpace(group) == "" {
-			return fmt.Errorf("plugin meta guard groups must contain non-empty names")
-		}
-	}
-	for _, model := range guard.Models {
-		if strings.TrimSpace(model) != model || model == "" {
-			return fmt.Errorf("plugin meta guard models must contain non-empty canonical names")
-		}
-	}
-	if len(guard.ConfigFields) > MaxGuardConfigFields {
-		return fmt.Errorf("plugin meta guard configFields must not exceed %d entries", MaxGuardConfigFields)
-	}
-	seenFields := make(map[string]struct{}, len(guard.ConfigFields))
-	for index := range guard.ConfigFields {
-		field := &guard.ConfigFields[index]
-		field.Name = strings.TrimSpace(field.Name)
-		if field.Name == "" || len(field.Name) > MaxGuardConfigFieldName {
-			return fmt.Errorf("plugin meta guard configFields names must be 1 to %d characters", MaxGuardConfigFieldName)
-		}
-		if _, duplicate := seenFields[field.Name]; duplicate {
-			return fmt.Errorf("plugin meta guard configFields must be unique")
-		}
-		seenFields[field.Name] = struct{}{}
-		if !slices.Contains(guardConfigFieldTypes, field.Type) {
-			return fmt.Errorf("plugin meta guard configFields[%d] type must be one of %s", index, strings.Join(guardConfigFieldTypes, ", "))
-		}
-		if field.Type == "enum" && len(field.EnumValues) == 0 {
-			return fmt.Errorf("plugin meta guard configFields[%d] of type enum must declare enumValues", index)
-		}
-		if field.Type != "enum" && len(field.EnumValues) > 0 {
-			return fmt.Errorf("plugin meta guard configFields[%d] declares enumValues but is not of type enum", index)
-		}
-	}
-	return nil
-}
-
-func validateGuardPath(path string) error {
-	if path == "" || !strings.HasPrefix(path, "/") {
-		return fmt.Errorf("plugin meta guard paths must start with /")
-	}
-	if len(path) > MaxGuardPathLength {
-		return fmt.Errorf("plugin meta guard paths must not exceed %d characters", MaxGuardPathLength)
-	}
-	if strings.ContainsAny(path, "?# \t\r\n") {
-		return fmt.Errorf("plugin meta guard paths must not contain a query, fragment, or whitespace")
-	}
-	return nil
 }

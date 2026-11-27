@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/QuantumNous/new-api/docs/plugin-api/v1.schema.json",
+  "$id": "https://github.com/QuantumNous/new-api/pluginkit/v1.schema.json",
   "title": "new-api Task Plugin v1 manifest",
   "type": "object",
   "additionalProperties": false,
@@ -260,6 +260,14 @@
       }
     },
     "auth": {},
+    "guard": {
+      "$ref": "#/$defs/guardMeta",
+      "description": "Declares this plugin a request guard. A guard decides whether a relay request may run and may not declare the task-plugin surface."
+    },
+    "interceptor": {
+      "$ref": "#/$defs/interceptorMeta",
+      "description": "Declares this plugin an outbound request interceptor. Mutually exclusive with guard and the task-plugin surface."
+    },
     "relay": {
       "type": "array",
       "items": {
@@ -355,236 +363,51 @@
         "$ref": "#/$defs/sample"
       },
       "description": "Requests the request plugin settings offer to try the plugin with, text only. At most 3 with the same lang; those without lang count as one value. Only a plugin with a request processing part may declare it. The host also refuses media and links in body and reply at load: see Samples in v1.md."
-    },
-    "guard": {
-      "$ref": "#/$defs/guardMeta",
-      "description": "Declares this plugin a request guard. A guard decides whether a relay request may run and may not declare the task-plugin surface."
-    },
-    "interceptor": {
-      "$ref": "#/$defs/interceptorMeta",
-      "description": "Declares this plugin an outbound request interceptor. Mutually exclusive with guard and the task-plugin surface."
     }
   },
   "anyOf": [
     {
       "required": [
-        "guard"
+        "models",
+        "fetchMode"
+      ]
+    },
+    {
+      "required": [
+        "relay"
       ],
-      "not": {
-        "required": [
-          "interceptor"
-        ]
+      "properties": {
+        "relay": {
+          "minItems": 1
+        }
       }
+    },
+    {
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "fetchMode"
+            ]
+          },
+          {
+            "required": [
+              "relay"
+            ]
+          }
+        ]
+      },
+      "description": "A request processing part alone, which the host reads from the exported stage hooks."
+    },
+    {
+      "required": [
+        "guard"
+      ]
     },
     {
       "required": [
         "interceptor"
-      ],
-      "not": {
-        "anyOf": [
-          {
-            "required": [
-              "guard"
-            ]
-          },
-          {
-            "required": [
-              "models"
-            ]
-          },
-          {
-            "required": [
-              "fetchMode"
-            ]
-          },
-          {
-            "required": [
-              "routes"
-            ]
-          },
-          {
-            "required": [
-              "protocols"
-            ]
-          },
-          {
-            "required": [
-              "channelTypes"
-            ]
-          },
-          {
-            "required": [
-              "usageSchema"
-            ]
-          },
-          {
-            "required": [
-              "usageProfiles"
-            ]
-          },
-          {
-            "required": [
-              "baseUrl"
-            ]
-          },
-          {
-            "required": [
-              "allowedHosts"
-            ]
-          },
-          {
-            "required": [
-              "upstreams"
-            ]
-          },
-          {
-            "required": [
-              "submitResponseTypes"
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "required": [
-        "guard"
-      ],
-      "not": {
-        "anyOf": [
-          {
-            "required": [
-              "models"
-            ]
-          },
-          {
-            "required": [
-              "fetchMode"
-            ]
-          },
-          {
-            "required": [
-              "routes"
-            ]
-          },
-          {
-            "required": [
-              "protocols"
-            ]
-          },
-          {
-            "required": [
-              "channelTypes"
-            ]
-          },
-          {
-            "required": [
-              "usageSchema"
-            ]
-          },
-          {
-            "required": [
-              "usageProfiles"
-            ]
-          },
-          {
-            "required": [
-              "baseUrl"
-            ]
-          },
-          {
-            "required": [
-              "allowedHosts"
-            ]
-          },
-          {
-            "required": [
-              "upstreams"
-            ]
-          },
-          {
-            "required": [
-              "submitResponseTypes"
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "required": [
-        "models",
-        "fetchMode"
-      ],
-      "not": {
-        "required": [
-          "guard"
-        ]
-      }
-    },
-    {
-      "required": [
-        "models",
-        "fetchMode"
       ]
-    },
-    {
-      "required": [
-        "relay"
-      ],
-      "properties": {
-        "relay": {
-          "minItems": 1
-        }
-      }
-    },
-    {
-      "not": {
-        "anyOf": [
-          {
-            "required": [
-              "fetchMode"
-            ]
-          },
-          {
-            "required": [
-              "relay"
-            ]
-          }
-        ]
-      },
-      "description": "A request processing part alone, which the host reads from the exported stage hooks."
-    },
-    {
-      "required": [
-        "models",
-        "fetchMode"
-      ]
-    },
-    {
-      "required": [
-        "relay"
-      ],
-      "properties": {
-        "relay": {
-          "minItems": 1
-        }
-      }
-    },
-    {
-      "not": {
-        "anyOf": [
-          {
-            "required": [
-              "fetchMode"
-            ]
-          },
-          {
-            "required": [
-              "relay"
-            ]
-          }
-        ]
-      },
-      "description": "A request processing part alone, which the host reads from the exported stage hooks."
     }
   ],
   "allOf": [
@@ -629,22 +452,6 @@
             "contains": {
               "const": "request-guard@1"
             }
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "required": [
-          "guard"
-        ]
-      },
-      "then": {
-        "properties": {
-          "guard": {
-            "required": [
-              "authorize"
-            ]
           }
         }
       }
@@ -1375,6 +1182,7 @@
             "openai_chat_completions_to_gemini_generate_content",
             "openai_responses_to_openai_chat_completions",
             "openai_responses_to_gemini_generate_content",
+            "openai_responses_to_claude_messages",
             "anthropic_messages_to_openai_chat_completions",
             "claude_messages_to_openai_responses",
             "gemini_generate_content_to_openai_chat_completions",
@@ -1386,6 +1194,7 @@
             "openai_chat_completions_to_gemini_generate_content+plugin",
             "openai_responses_to_openai_chat_completions+plugin",
             "openai_responses_to_gemini_generate_content+plugin",
+            "openai_responses_to_claude_messages+plugin",
             "anthropic_messages_to_openai_chat_completions+plugin",
             "claude_messages_to_openai_responses+plugin",
             "gemini_generate_content_to_openai_chat_completions+plugin",
@@ -1424,9 +1233,14 @@
         },
         "pass_through_body_enabled": {
           "type": "boolean"
+        },
+        "default_enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether a channel serves the route before an administrator switches it on the channel. Not false on /v1/models or /v1/dashboard/billing/credit_grants."
         }
       },
-      "description": "The keys of an Advanced Custom channel route; the host applies the same validation rules."
+      "description": "The keys of an Advanced Custom channel route, plus default_enabled; the host applies the same validation rules."
     },
     "upstreamKind": {
       "enum": [
